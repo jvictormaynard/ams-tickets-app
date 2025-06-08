@@ -1,0 +1,1 @@
+docker build /etc/easypanel/projects/ams/ams-tickets/code/ -f /etc/easypanel/projects/ams/ams-tickets/code/.nixpacks/Dockerfile -t easypanel/ams/ams-tickets --build-arg CI=true --build-arg GIT_SHA=undefined --build-arg NIXPACKS_METADATA=node --build-arg NODE_ENV=production --build-arg NPM_CONFIG_PRODUCTION=false --label keep=true
