@@ -12,6 +12,8 @@ RUN npm install
 # Copy the rest of the application code to the working directory
 COPY . .
 
+ARG JWT_SECRET
+
 # Build the Next.js application
 RUN npm run build
 
