@@ -9,6 +9,11 @@ if (!JWT_SECRET) {
   throw new Error('❌ Missing JWT_SECRET environment variable')
 }
 
+const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
+if (!ADMIN_PASSWORD_HASH) {
+  throw new Error('❌ Missing ADMIN_PASSWORD_HASH environment variable');
+}
+
 const COOKIE_NAME = 'auth_token'
 
 interface User {
