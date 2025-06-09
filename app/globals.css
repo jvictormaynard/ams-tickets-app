@@ -7,25 +7,21 @@
 }
 
 body {
-    opacity: 1; /* By default, the body should be visible */
+    /* By default, the body should be visible */
+    opacity: 1;
     transition: opacity 0.3s ease-in-out;
-}
-
-body.is-loading {
-    opacity: 0; /* When the loading class is present, hide the body */
-}
-/* Ensure immediate styling during load */
-html {
-  background: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
-  min-height: 100%;
-  opacity: 1;
-}
-
-body {
-  margin: 0;
-  min-height: 100vh;
-  color: #e0e0e0;
-  font-family: var(--font-inter), -apple-system, system-ui, sans-serif;
+    /* Ensure immediate styling during load */
+    background: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
+    min-height: 100vh;
+    color: #e0e0e0;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    margin: 0;
+    padding: 0; /* Set padding to 0 as per login page's global style */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    overflow: hidden;
 }
 
 /* Minimal loading state styles */

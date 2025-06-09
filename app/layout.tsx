@@ -37,14 +37,10 @@ export default function RootLayout({
           crossOrigin="anonymous"
         />
       </head>
-      <body className="is-loading">
+      <body>
         <div id="app-root">
           {children}
         </div>
-        <script>
-          // Remove the is-loading class from the body
-          document.body.classList.remove('is-loading');
-        </script>
       </body>
     </html>
   );
