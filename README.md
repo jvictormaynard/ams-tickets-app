@@ -1,69 +1,118 @@
-# Painel de Solicitações AMS
+# Painel de Tickets AMS
 
-Este projeto é um painel de controle para visualizar e gerenciar solicitações (tickets) do sistema AMS. Ele permite que os usuários autenticados vejam uma lista de tickets, pesquisem por informações específicas e visualizem o histórico completo de conversas de cada ticket, incluindo mensagens e anexos.
+Este projeto é um painel interativo desenvolvido com Next.js para visualizar e gerenciar solicitações de suporte, integrando-se com o sistema Chatwoot. Ele oferece uma interface centralizada para acompanhar o status dos tickets, pesquisar informações e acessar o histórico completo das conversas.
 
-Construído com [Next.js](https://nextjs.org), este painel oferece uma interface responsiva e eficiente para acompanhar o fluxo de trabalho das solicitações.
+## Funcionalidades Principais
 
-## Funcionalidades
+*   **Listagem e Visualização de Tickets**: Exibe uma lista abrangente de todos os tickets de suporte.
+*   **Pesquisa e Filtragem Avançada**: Permite buscar tickets por assunto, ID, empresa, solicitante ou agente.
+*   **Paginação Eficiente**: Facilita a navegação por grandes volumes de tickets.
+*   **Histórico de Conversas Detalhado**: Um modal exibe o histórico completo de mensagens de cada ticket, incluindo texto e anexos (imagens, áudios, vídeos e outros arquivos).
+*   **Sistema de Autenticação**: Garante acesso seguro ao painel.
+*   **Atualização Automática**: Os dados dos tickets são atualizados periodicamente para manter as informações sempre em dia.
 
-*   **Visualização de Tickets:** Exibe uma lista paginada de todas as solicitações com detalhes como ID, Assunto, Empresa, Solicitante, Agente Responsável, Data de Criação, Última Atualização e Status.
-*   **Pesquisa e Filtragem:** Permite buscar tickets por diversos campos (Assunto, ID, Empresa, Solicitante, Agente).
-*   **Histórico de Conversas:** Ao clicar em um ticket, um modal é exibido mostrando o histórico completo das mensagens trocadas, incluindo a identificação do remetente (Agente ou Cliente), data/hora e anexos (imagens, áudios, vídeos, arquivos).
-*   **Status Visual:** O status de cada ticket é destacado visualmente na tabela.
-*   **Autenticação:** Inclui um fluxo básico de autenticação para acesso ao painel.
+## Tecnologias Utilizadas
 
-## Primeiros Passos
+O projeto é construído com as seguintes tecnologias:
 
-Para configurar e executar o projeto localmente, siga os passos abaixo.
+*   **Next.js**: Framework React para desenvolvimento de aplicações web.
+*   **React**: Biblioteca JavaScript para construção de interfaces de usuário.
+*   **TypeScript**: Superset do JavaScript que adiciona tipagem estática.
+*   **Tailwind CSS**: Framework CSS utilitário para estilização rápida e responsiva.
+*   **bcryptjs**: Biblioteca para hashing de senhas, utilizada na autenticação.
+*   **jose** e **jsonwebtoken**: Bibliotecas para manipulação de JSON Web Tokens (JWT) para autenticação.
+*   **Chatwoot API**: Integração com a API do Chatwoot para buscar dados de conversas e tickets.
 
-### Pré-requisitos
+## Configuração e Execução Local
 
-Certifique-se de ter o Node.js e o npm (ou yarn, pnpm, bun) instalados em sua máquina.
+Siga os passos abaixo para configurar e executar o projeto em seu ambiente local:
 
-### Instalação
+### 1. Clonar o Repositório
 
-1.  Clone o repositório:
-    ```bash
-    git clone [URL_DO_REPOSITORIO]
-    cd ams-tickets
-    ```
-    *(Nota: Substitua `[URL_DO_REPOSITORIO]` pela URL real do repositório)*
+```bash
+git clone [URL_DO_REPOSITORIO]
+cd ams-tickets-pre/code
+```
 
-2.  Instale as dependências:
-    ```bash
-    npm install
-    # ou
-    yarn install
-    # ou
-    pnpm install
-    # ou
-    bun install
-    ```
+### 2. Instalar Dependências
 
-3.  Configure as variáveis de ambiente. Crie um arquivo `.env.local` na raiz do projeto e adicione as variáveis necessárias. *(Baseado na estrutura do projeto, pode ser necessário configurar credenciais ou URLs de API. Consulte a documentação interna ou o código para detalhes específicos, se aplicável).*
+```bash
+npm install
+```
 
-### Executando o Servidor de Desenvolvimento
+### 3. Configurar Variáveis de Ambiente
 
-Execute o comando abaixo para iniciar o servidor de desenvolvimento:
+Crie um arquivo `.env.local` na raiz do projeto e adicione as seguintes variáveis:
+
+```
+CHATWOOT_URL="Sua URL do Chatwoot (ex: https://app.chatwoot.com)"
+CHATWOOT_ACCOUNT_ID="Seu ID de Conta do Chatwoot"
+CHATWOOT_API_TOKEN="Seu Token de Acesso à API do Chatwoot"
+JWT_SECRET="Uma string secreta forte para JWT (ex: gerada com 'openssl rand -base64 32')"
+ADMIN_USERNAME="Nome de usuário padrão para login (ex: admin)"
+ADMIN_PASSWORD_HASH="Hash da senha padrão para login (ex: $2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy para 'password')"
+```
+
+**Nota**: Para `ADMIN_PASSWORD_HASH`, você pode gerar um hash de senha usando uma ferramenta como `bcryptjs` em um script separado ou online. O exemplo fornecido é para a senha 'password'.
+
+### 4. Executar o Servidor de Desenvolvimento
 
 ```bash
 npm run dev
-# ou
-yarn dev
-# ou
-pnpm dev
-# ou
-bun dev
 ```
 
-Abra [http://localhost:3000](http://localhost:3000) no seu navegador para acessar o painel.
+O aplicativo estará disponível em `http://localhost:3000`.
 
-## Saiba Mais
+### 5. Construir e Iniciar para Produção
 
-Para aprender mais sobre Next.js, consulte a [Documentação do Next.js](https://nextjs.org/docs) e o tutorial [Learn Next.js](https://nextjs.org/learn).
+Para construir o aplicativo para produção:
 
-## Deploy na Vercel
+```bash
+npm run build
+```
 
-A maneira mais fácil de fazer deploy do seu aplicativo Next.js é usar a [Plataforma Vercel](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) dos criadores do Next.js.
+Para iniciar o aplicativo em modo de produção:
 
-Confira nossa [documentação de deploy do Next.js](https://nextjs.org/docs/app/building-your-application/deploying) para mais detalhes.
+```bash
+npm run start
+```
+
+## Estrutura do Projeto
+
+O projeto segue a estrutura de pastas padrão do Next.js, com algumas adições:
+
+```
+.
+├── app/                  # Páginas, rotas e APIs da aplicação Next.js
+│   ├── api/              # Rotas de API (autenticação, histórico de tickets)
+│   ├── chat/             # Página de chat (placeholder)
+│   ├── login/            # Página de login
+│   └── ...               # Outras páginas e layouts
+├── components/           # Componentes React reutilizáveis (ex: ChatMessage, LoadingState)
+├── public/               # Ativos estáticos (imagens, ícones)
+├── styles/               # Arquivos de estilo globais e módulos CSS
+├── .gitignore            # Arquivos e pastas a serem ignorados pelo Git
+├── package.json          # Metadados do projeto e dependências
+├── next.config.js        # Configuração do Next.js
+├── tsconfig.json         # Configuração do TypeScript
+└── README.md             # Este arquivo
+```
+
+## Diagrama de Arquitetura
+
+```mermaid
+graph TD
+    A[Usuário] -->|Acessa| B(Painel de Tickets - Frontend Next.js)
+    B -->|Requisição de Dados| C{API Interna: /api/ticket-history}
+    B -->|Requisição de Autenticação| D{API Interna: /api/auth}
+    C -->|Busca Conversas/Mensagens| E[Chatwoot API]
+    D -->|Verifica Credenciais| F[Autenticação (bcryptjs, JWT)]
+    E -->|Retorna Dados| C
+    C -->|Transforma Dados| B
+    F -->|Gera Token| D
+    D -->|Define Cookie| B
+```
+
+## Licença
+
+MIT License

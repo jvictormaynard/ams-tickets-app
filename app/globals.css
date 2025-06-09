@@ -6,22 +6,26 @@
   --border-color: rgba(0, 123, 255, 0.2);
 }
 
+html, body {
+    height: 100%; /* Ensure html and body take full viewport height */
+    overflow: hidden; /* Hide scrollbars */
+    margin: 0;
+    padding: 0;
+}
+
 body {
     /* By default, the body should be visible */
     opacity: 1;
     transition: opacity 0.3s ease-in-out;
     /* Ensure immediate styling during load */
     background: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
-    min-height: 100vh;
     color: #e0e0e0;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    margin: 0;
-    padding: 0; /* Set padding to 0 as per login page's global style */
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-    overflow: hidden;
+    font-size: 14px;
+    display: flex; /* Make body a flex container */
+    justify-content: center; /* Center content horizontally */
+    align-items: center; /* Center content vertically */
+    height: 100vh; /* Ensure body takes full viewport height for centering */
 }
 
 /* Minimal loading state styles */
@@ -56,15 +60,6 @@ body {
     100% { box-shadow: 0 8px 24px rgba(0, 123, 255, 0.1); }
 }
 
-body {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background: linear-gradient(135deg, #1a1d21 0%, #121416 100%);
-    color: #e0e0e0;
-    margin: 0;
-    padding: 20px;
-    font-size: 14px;
-    min-height: 100vh;
-}
 
 .dashboard-container {
     background: rgba(37, 40, 44, 0.95);
@@ -325,4 +320,139 @@ tr.ticket-row:hover {
 
 .close-history:hover {
     background-color: #c82333;
+}
+
+/* Login Page Styles */
+.login-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center; /* Center children horizontally */
+    position: relative;
+    gap: 20px;
+}
+
+.floating-logo {
+    animation: fadeIn 1s ease-out, slideInUp 0.8s ease-out;
+    z-index: 10;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: transparent;
+    box-shadow: none;
+    margin: 0 auto; /* Added to ensure horizontal centering */
+}
+
+.logo-image {
+    max-width: 180px;
+    height: auto;
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
+}
+
+.login-box {
+    background: rgba(37, 40, 44, 0.9);
+    padding: 40px;
+    border-radius: 16px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+    text-align: center;
+    width: 100%;
+    max-width: 400px;
+    border: 1px solid var(--border-color);
+    backdrop-filter: blur(10px);
+    animation: fadeIn 0.8s ease-out 0.2s forwards;
+    opacity: 0;
+    position: relative;
+    z-index: 5;
+}
+
+.title-container {
+    margin-bottom: 40px;
+    text-align: left;
+}
+
+.welcome-text {
+    font-size: 1.2em;
+    color: #b0b0b0;
+    display: block;
+    margin-bottom: 10px;
+}
+
+.login-box h2 {
+    color: var(--primary-blue);
+    margin: 0;
+    font-size: 2.5em;
+    font-weight: 700;
+    letter-spacing: -0.8px;
+    text-shadow: 0 3px 6px rgba(0, 0, 0, 0.2);
+}
+
+.input-group {
+    margin-bottom: 20px;
+    text-align: left;
+}
+
+.input-group label {
+    display: block;
+    margin-bottom: 8px;
+    color: #c0c0c0;
+    font-size: 0.95em;
+    font-weight: 500;
+}
+
+.input-group input {
+    width: 100%;
+    padding: 14px 18px;
+    border-radius: 8px;
+    border: 2px solid #3a3f44;
+    background-color: rgba(30, 33, 37, 0.8);
+    color: #e0e0e0;
+    font-size: 1.05em;
+    transition: all 0.3s ease;
+    box-sizing: border-box;
+}
+
+.input-group input:focus {
+    outline: none;
+    border-color: var(--primary-blue);
+    box-shadow: 0 0 0 4px rgba(74, 201, 255, 0.25);
+    background-color: rgba(30, 33, 37, 0.95);
+}
+
+.error-message {
+    color: #ff6b6b;
+    margin-top: -10px;
+    margin-bottom: 20px;
+    font-size: 0.9em;
+    background: rgba(255, 107, 107, 0.1);
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 107, 107, 0.3);
+    animation: fadeIn 0.4s ease-out;
+}
+
+.login-button {
+    width: 100%;
+    padding: 15px;
+    margin-top: 30px;
+    background: linear-gradient(90deg, #007bff, #0056b3);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 1.1em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(0, 123, 255, 0.3);
+    letter-spacing: 0.5px;
+}
+
+.login-button:disabled {
+    background: linear-gradient(90deg, #5a6268, #4a5056);
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+.login-button:hover:not(:disabled) {
+    background: linear-gradient(90deg, #0056b3, #003f7f);
+    box-shadow: 0 6px 20px rgba(0, 123, 255, 0.4);
+    transform: translateY(-2px);
 }

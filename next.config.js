@@ -1,26 +1,25 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  output: 'standalone',
   poweredByHeader: false,
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production',
   },
   experimental: {
-    optimizeCss: true,
-    optimizePackageImports: ['next', 'react', 'react-dom'],
+    // optimizeCss: true, // Desabilitado para depuração
+    // optimizePackageImports: ['next', 'react', 'react-dom'], // Desabilitado para depuração
   },
   webpack: (config, { dev, isServer }) => {
-    // Optimize CSS loading
-    if (!dev && !isServer) {
-      config.optimization.splitChunks.cacheGroups.styles = {
-        name: 'styles',
-        test: /\.(css|scss)$/,
-        chunks: 'all',
-        enforce: true,
-        priority: 20,
-      };
-    }
+    // Removida otimização de CSS para depuração de erros de carregamento
+    // if (!dev && !isServer) {
+    //   config.optimization.splitChunks.cacheGroups.styles = {
+    //     name: 'styles',
+    //     test: /\.(css|scss)$/,
+    //     chunks: 'all',
+    //     enforce: true,
+    //     priority: 20,
+    //   };
+    // }
     return config;
   },
   
@@ -74,7 +73,7 @@ const nextConfig = {
           },
           {
             key: 'Content-Security-Policy',
-            value: "default-src 'self'; img-src 'self' https: data:; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self' https:; connect-src 'self' https:;"
+            value: "default-src 'self'; img-src 'self' https: data:; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https:;"
           }
         ]
       }
