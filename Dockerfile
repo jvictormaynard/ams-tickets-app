@@ -1,24 +1,30 @@
-# Use an official Node.js image as the base image
-FROM node:20-alpine
-
-# Set the working directory inside the container
+# ── In your build stage:
+FROM node:18-alpine AS builder
 WORKDIR /app
 
-# Copy package.json and package-lock.json (or yarn.lock) to the working directory
-# and install dependencies. Use a separate step for caching.
+# install dependencies
 COPY package*.json ./
-RUN npm install
+RUN npm ci
 
-# Copy the rest of the application code to the working directory
+# copy source
 COPY . .
 
+# ← Add these two lines before the build
 ARG JWT_SECRET
+ENV JWT_SECRET=$JWT_SECRET
 
-# Build the Next.js application
+# build your Next.js app
 RUN npm run build
 
-# Expose the port the application runs on (default is 3000)
-EXPOSE 3000
+# ── In your production stage:
+FROM node:18-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
 
-# Command to run the application
-CMD ["npm", "start"]
+# copy only what's needed to run
+COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json ./package.json
+
+EXPOSE 3000
+CMD ["npm","start"]
