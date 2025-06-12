@@ -42,4 +42,5 @@ USER nextjs
 EXPOSE 3000
 
 # Command to run the application
-CMD ["npm", "start"]
+# Next.js standalone output creates a self-contained server.js
+CMD ["node", "server.js"]
