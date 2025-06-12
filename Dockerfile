@@ -35,12 +35,10 @@ COPY --from=builder /app/public ./public
 
 # Create cache directory and set permissions for the non-root user
 RUN mkdir -p .next/cache && \
-    chown -R nextjs:nodejs .next/cache
+    chown -R node:node .next/cache
 
-# Create a non-root user for security
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
-USER nextjs
+# Use the existing `node` user for security
+USER node
 
 # Expose the port the application runs on
 EXPOSE 3000
