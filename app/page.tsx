@@ -1,8 +1,7 @@
 "use client";
 
-import Head from 'next/head';
+import React, { useEffect, useState, useCallback } from 'react';
 import Image from 'next/image';
-import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation'; // Import useRouter
 
 // --- Interfaces (devem corresponder às da API, incluindo attachments) ---
@@ -76,6 +75,7 @@ export default function TicketDashboardPage() {
     const [error, setError] = useState<string | null>(null);
     const [currentPage, setCurrentPage] = useState(1); // New state for current page
     const ticketsPerPage = 25; // Max tickets per page
+    const [totalTicketsCount, setTotalTicketsCount] = useState(0); // New state for total ticket count
     const router = useRouter(); // Initialize useRouter
     const [isAuthenticating, setIsAuthenticating] = useState(true); // New state for auth check
 
@@ -102,7 +102,8 @@ export default function TicketDashboardPage() {
 
     const fetchData = useCallback(async () => {
         setLoading(true);
-        const apiUrl = "/api/ticket-history";
+        // Construct API URL with pagination parameters
+        const apiUrl = `/api/ticket-history?page=${currentPage}&per_page=${ticketsPerPage}`;
         try {
             const response = await fetch(apiUrl);
             if (!response.ok) {
@@ -113,23 +114,25 @@ export default function TicketDashboardPage() {
             if (data.error) throw new Error(data.error);
             setAllTickets(data.tickets || []);
             setTicketConversations(data.conversations || {});
+            setTotalTicketsCount(data.totalTicketsCount || 0); // Set total ticket count
         } catch (err: any) {
             console.error("PAGE: Erro ao buscar dados:", err);
             setError(err.message || "Ocorreu um erro ao carregar os tickets.");
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [currentPage, ticketsPerPage]); // Add currentPage and ticketsPerPage to dependency array
 
     useEffect(() => {
         if (!isAuthenticating) { // Only fetch data if authenticated
             fetchData();
+            // Re-fetch data on interval only if not searching and not on a specific page
             const intervalId = setInterval(() => {
-                if (!searchTerm) { fetchData(); }
+                if (!searchTerm && currentPage === 1) { fetchData(); }
             }, 30000);
             return () => clearInterval(intervalId);
         }
-    }, [fetchData, searchTerm, isAuthenticating]); // Add isAuthenticating to dependency array
+    }, [fetchData, searchTerm, isAuthenticating, currentPage]); // Add currentPage to dependency array
 
     useEffect(() => {
         let tempFiltered = [...allTickets];
@@ -176,15 +179,17 @@ export default function TicketDashboardPage() {
     // Pagination logic
     const indexOfLastTicket = currentPage * ticketsPerPage;
     const indexOfFirstTicket = indexOfLastTicket - ticketsPerPage;
-    const currentTickets = filteredTickets.slice(indexOfFirstTicket, indexOfLastTicket);
-    const totalPages = Math.ceil(filteredTickets.length / ticketsPerPage);
+    // When searching, we paginate over filteredTickets. When not searching, we paginate over allTickets (which are paginated by API)
+    const ticketsToPaginate = searchTerm ? filteredTickets : allTickets;
+    const currentTickets = ticketsToPaginate.slice(indexOfFirstTicket, indexOfLastTicket);
+    const totalPages = Math.ceil((searchTerm ? filteredTickets.length : totalTicketsCount) / ticketsPerPage);
 
     const handleNextPage = () => {
-        setCurrentPage(prev => Math.min(prev + 1, totalPages));
+        setCurrentPage((prev: number) => Math.min(prev + 1, totalPages));
     };
 
     const handlePrevPage = () => {
-        setCurrentPage(prev => Math.max(prev - 1, 1));
+        setCurrentPage((prev: number) => Math.max(prev - 1, 1));
     };
 
     // Render a loading state or null while checking authentication
@@ -217,7 +222,6 @@ export default function TicketDashboardPage() {
 
     return (
         <>
-            <Head><title>{pageTitle}</title></Head>
             <div className="dashboard-container dashboard-v2">
                 <div className="dashboard-header-v2">
                     <h1>Painel de Tickets</h1>
@@ -227,7 +231,7 @@ export default function TicketDashboardPage() {
                     <input
                         type="text"
                         value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
                         placeholder="Pesquisar por assunto, ID, empresa, solicitante, agente..."
                     />
                     <button onClick={() => fetchData()} className="refresh-button" title="Atualizar lista de tickets">
@@ -236,12 +240,12 @@ export default function TicketDashboardPage() {
                 </div>
                 
                 {error && !loading && allTickets.length > 0 &&
-                    <p style={{textAlign: 'center', color: 'orange', padding: '10px 0', margin: '-15px 0 10px 0', fontSize: '0.9em'}}>
+                    <p className="warning-message">
                         Aviso ao tentar atualizar: {error} (Exibindo últimos dados carregados)
                     </p>
                 }
                 {loading && allTickets.length > 0 &&
-                    <p style={{textAlign: 'center', color: '#aaa', padding: '10px 0', margin: '-15px 0 10px 0', fontSize: '0.9em'}}>
+                    <p className="info-message">
                         Atualizando lista de solicitações...
                     </p>
                 }
@@ -268,14 +272,14 @@ export default function TicketDashboardPage() {
                             <tbody>
                                 {currentTickets.map(ticket => ( // Use currentTickets here
                                     <tr key={ticket.id} className="ticket-row" onClick={() => handleShowConversationHistory(ticket)}>
-                                        <td className="assunto-cell" title={ticket.assunto}>{ticket.assunto}</td>
-                                        <td>#{ticket.id}</td>
-                                        <td title={ticket.empresa}>{ticket.empresa}</td>
-                                        <td title={ticket.contactName}>{ticket.contactName}</td>
-                                        <td>{ticket.agent}</td>
-                                        <td>{ticket.dateCreated}</td>
-                                        <td>{formatLastActivity(ticket.lastActivityAt)}</td>
-                                        <td><span className={`status ${ticket.statusClass}`}>{ticket.status}</span></td>
+                                        <td className="assunto-cell" data-label="Assunto" title={ticket.assunto}>{ticket.assunto}</td>
+                                        <td data-label="ID">#{ticket.id}</td>
+                                        <td data-label="Empresa" title={ticket.empresa}>{ticket.empresa}</td>
+                                        <td data-label="Solicitante" title={ticket.contactName}>{ticket.contactName}</td>
+                                        <td data-label="Agente">{ticket.agent}</td>
+                                        <td data-label="Criado em">{ticket.dateCreated}</td>
+                                        <td data-label="Última Atualização">{formatLastActivity(ticket.lastActivityAt)}</td>
+                                        <td data-label="Status"><span className={`status ${ticket.statusClass}`}>{ticket.status}</span></td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -296,7 +300,17 @@ export default function TicketDashboardPage() {
 
                 {/* Modal de Histórico */}
                 {modalVisible && currentTicketForModal && (
-                    <div id="conversationHistoryModal" className="conversation-history-modal" style={{ display: 'block' }}>
+                    <div 
+                        className={`conversation-history-modal-overlay ${modalVisible ? 'modal-active' : ''}`}
+                        onClick={handleCloseConversationHistory} // Close modal when clicking outside
+                    >
+                        <div 
+                            id="conversationHistoryModal" 
+                            className="conversation-history-modal" 
+                            role="dialog" 
+                            aria-modal="true" 
+                            onClick={(e) => e.stopPropagation()} // Prevent clicks inside modal from closing it
+                        >
                         <button className="close-history" onClick={handleCloseConversationHistory}>Fechar Histórico X</button>
                         <h3>
                             Ticket #{currentTicketForModal.id}: {currentTicketForModal.assunto}
@@ -310,8 +324,8 @@ export default function TicketDashboardPage() {
                                 (() => {
                                     let lastDisplayedDate: string | null = null;
                                     return ticketConversations[currentTicketForModal.id]
-                                        .sort((a, b) => a.timestamp - b.timestamp)
-                                        .map((msg) => {
+                                        .sort((a: ConversationMessageForFrontend, b: ConversationMessageForFrontend) => a.timestamp - b.timestamp)
+                                        .map((msg: ConversationMessageForFrontend) => {
                                             const { date, time } = formatMessageTimestampDetails(msg.timestamp);
                                             const showDateSeparator = date !== lastDisplayedDate;
                                             if (showDateSeparator) {
@@ -337,7 +351,7 @@ export default function TicketDashboardPage() {
                                                                 <span className="message-text">{msg.text}</span>
                                                             }
                                                             {/* Renderiza os anexos */}
-                                                            {msg.attachments && msg.attachments.map(att => (
+                                                            {msg.attachments && msg.attachments.map((att: ChatwootAttachment) => (
                                                                 <div key={att.id} className="message-attachment">
                                                                     {att.file_type === 'image' ? (
                                                                         // eslint-disable-next-line @next/next/no-img-element
@@ -386,214 +400,9 @@ export default function TicketDashboardPage() {
                             )}
                         </div>
                     </div>
+                </div>
                 )}
             </div>
-            {/* Estilos Globais (mantendo os da sua versão anterior e adicionando/ajustando para anexos) */}
-            <style jsx global>{`
-                body {
-                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                    background-color: #1a1d21;
-                    color: #e0e0e0;
-                    margin: 0;
-                    font-size: 14px;
-                }
-
-                .dashboard-container.dashboard-v2 {
-                    background-color: #1a1d21;
-                    padding: 25px 35px;
-                    max-width: 100%;
-                    min-height: 100vh;
-                    margin: 0;
-                    color: #e0e0e0;
-                }
-
-                .dashboard-header-v2 {
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                    margin-bottom: 25px;
-                    padding-bottom: 15px;
-                    border-bottom: 1px solid #2c3035;
-                }
-
-                .dashboard-header-v2 h1 {
-                    margin: 0;
-                    font-size: 26px;
-                    color: #e0e0e0;
-                    font-weight: 500;
-                }
-                
-                .search-bar-container-v2 {
-                    margin-bottom: 25px;
-                    display: flex;
-                    align-items: center; /* Align items vertically */
-                }
-
-                .search-bar-container-v2 input {
-                    flex-grow: 1;
-                    padding: 10px 15px;
-                    border-radius: 4px;
-                    border: 1px solid #3a3f44;
-                    background-color: #25282c;
-                    color: #e0e0e0;
-                    font-size: 14px;
-                    margin-right: 10px; /* Add some space between input and button */
-                }
-                 .search-bar-container-v2 input::placeholder {
-                    color: #777;
-                }
-
-                .refresh-button {
-                    background-color: #007bff; /* Same as pagination buttons */
-                    color: white;
-                    border: none;
-                    padding: 0; /* Remove padding to control size with width/height */
-                    width: 36px; /* Square button width */
-                    height: 36px; /* Square button height */
-                    border-radius: 4px;
-                    cursor: pointer;
-                    font-size: 20px; /* Adjust symbol size */
-                    line-height: 36px; /* Center symbol vertically */
-                    text-align: center;
-                    flex-shrink: 0; /* Prevent button from shrinking */
-                }
-
-                .refresh-button:hover {
-                    background-color: #0056b3; /* Darker blue on hover */
-                }
-
-                .tickets-table-v2 {
-                    width: 100%;
-                    border-collapse: collapse;
-                    margin-top: 10px;
-                }
-
-                .tickets-table-v2 th, .tickets-table-v2 td {
-                    padding: 10px 12px;
-                    text-align: left;
-                    border-bottom: 1px solid #2c3035;
-                    vertical-align: middle;
-                    font-size: 13px;
-                }
-
-                .tickets-table-v2 th {
-                    background-color: transparent;
-                    color: #8899a6;
-                    font-weight: 500;
-                    text-transform: uppercase;
-                    font-size: 11px;
-                }
-                .tickets-table-v2 td {
-                    color: #c0c0c0;
-                }
-                .tickets-table-v2 .assunto-cell {
-                    color: #e0e0e0;
-                    font-weight: 500;
-                    white-space: nowrap;
-                    overflow: hidden;
-                    text-overflow: ellipsis;
-                }
-
-                .tickets-table-v2 tr.ticket-row:hover {
-                    background-color: #25282c;
-                    cursor: pointer;
-                }
-
-                .status { padding: 5px 10px; border-radius: 15px; font-size: 12px; font-weight: 500; text-align: center; display: inline-block; min-width: 70px; }
-                .status-open { background-color: #28a745; color: white; }
-                .status-on-hold { background-color: #ffc107; color: #333; }
-                .status-resolved { background-color: #6c757d; color: white; }
-                .status-loja-parada { background-color: #dc3545; color: white; }
-                .status-aberto { background-color: #dd3b00; color: white; }
-                .status-pendente { background-color: #ffab00; color: #212529; }
-                .status-adiado { background-color: #6c757d; color: white; }
-
-                .conversation-history-modal { background-color: #25282c; padding: 25px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3); max-width: 700px; margin: 30px auto; border: 1px solid #007bff; }
-                .conversation-history-modal h3 { color: #4AC9FF; margin-top: 0; border-bottom: 1px solid #3a3f44; padding-bottom: 10px; margin-bottom: 20px; font-size: 18px; }
-                .close-history { background-color: #dc3545; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-size: 13px; float: right; margin-bottom:10px; }
-                .close-history:hover { background-color: #c82333; }
-                .message { padding: 10px; margin-bottom: 10px; border-radius: 5px; line-height: 1.5; clear: both; }
-                .message.customer { background-color: #353a3f; text-align: left; margin-right: 25%; }
-                .message.agent { background-color: #0056b3; color: white; text-align: left; margin-left: 25%; }
-                .message .sender { font-weight: bold; font-size: 0.9em; display: block; margin-bottom: 4px; color: #00A0E3; }
-                .message.customer .sender { color: #6DD5FA; }
-                .message-date-separator { text-align: center; margin: 15px 0 10px 0; color: #888; font-size: 0.9em; position: relative; }
-                .message-date-separator span { background-color: #25282c; padding: 0 10px; position: relative; z-index: 1; }
-                .message-date-separator::before { content: ""; position: absolute; left: 0; top: 50%; width: 100%; height: 1px; background-color: #3a3f44; z-index: 0; }
-                .message .message-time { font-size: 0.75em; color: #999; margin-left: 8px; display: inline; }
-                .message.agent .message-time { color: #e0e0e0; }
-                .message.system { background-color: #3c4147; color: #a0a7af; text-align: center; font-size: 0.8em; font-style: italic; padding: 6px 10px; margin: 10px auto; max-width: 75%; border-radius: 15px; }
-                
-                .message.system .message-text { display: block; } /* Mantém o texto da msg de sistema */
-                .message.system .message-time { display: block; font-size: 0.85em; color: #888; margin-top: 3px; }
-                
-                #historyMessages { display: flex; flex-direction: column; }
-
-                /* Estilos para anexos */
-                .message-content {
-                    /* margin-top: 5px; */ /* Removido, pois o texto/anexo é o conteúdo principal */
-                }
-                .message-text { /* Texto normal da mensagem */
-                    white-space: pre-wrap; 
-                    word-break: break-word; 
-                }
-                .message-attachment {
-                    margin-top: 8px; /* Espaço entre texto (se houver) e anexo, ou entre anexos */
-                }
-                .attachment-link {
-                    color: #8ab4f8; /* Azul mais claro para links, bom em tema escuro */
-                    text-decoration: none;
-                    display: inline-block;
-                    padding: 6px 10px;
-                    background-color: #3c4147; 
-                    border-radius: 4px;
-                    font-size: 0.9em;
-                    border: 1px solid #4a4f54;
-                }
-                .attachment-link:hover {
-                    background-color: #4a5867;
-                    border-color: #5a6877;
-                    text-decoration: underline;
-                }
-                .message.agent .attachment-link { /* Para links em mensagens de agente */
-                    color: #ffffff;
-                    background-color: #0069d9; /* Um pouco mais escuro que o fundo da msg do agente */
-                    border: none;
-                }
-                 .message.agent .attachment-link:hover {
-                    background-color: #005cbf;
-                 }
-
-                .pagination-controls {
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                    padding: 20px 0;
-                    margin-top: 10px;
-                }
-                .pagination-controls button {
-                    background-color: #007bff;
-                    color: white;
-                    border: none;
-                    padding: 8px 15px;
-                    border-radius: 4px;
-                    cursor: pointer;
-                    font-size: 14px;
-                    margin: 0 8px;
-                }
-                .pagination-controls button:hover {
-                    background-color: #0056b3;
-                }
-                .pagination-controls button:disabled {
-                    background-color: #495057;
-                    cursor: not-allowed;
-                }
-                .pagination-controls span {
-                    color: #e0e0e0;
-                    font-size: 14px;
-                }
-
-            `}</style>
         </>
     );
 }

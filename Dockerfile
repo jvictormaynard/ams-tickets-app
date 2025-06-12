@@ -1,28 +1,45 @@
-# Use an official Node.js image as the base image
-FROM node:20-alpine
+# Stage 1: Dependencies and Build
+FROM node:20-alpine AS builder
 
-# Set the working directory inside the container
 WORKDIR /app
 
-# Copy package.json and package-lock.json (or yarn.lock) to the working directory
-# and install dependencies. Use a separate step for caching.
-COPY package*.json ./
-RUN npm install
+# Copy package.json and package-lock.json for dependency caching
+COPY package.json ./
+COPY package-lock.json ./
 
-# Copy the rest of the application code to the working directory
+# Install dependencies (production only for smaller final image)
+RUN npm ci --omit=dev
+
+# Copy the rest of the application code
 COPY . .
 
-ARG JWT_SECRET
-ENV JWT_SECRET=$JWT_SECRET
-
-ARG ADMIN_PASSWORD_HASH
-ENV ADMIN_PASSWORD_HASH=$ADMIN_PASSWORD_HASH
-
 # Build the Next.js application
+# Output to .next/standalone for a self-contained build
 RUN npm run build
 
-# Expose the port the application runs on (default is 3000)
-EXPOSE 3002
+# Stage 2: Production Runtime
+FROM node:20-alpine AS runner
+
+WORKDIR /app
+
+# Set environment variables for production
+ENV NODE_ENV=production
+ENV PORT=3000
+
+# Copy package.json from builder to ensure `npm start` works
+COPY --from=builder /app/package.json ./
+
+# Copy the standalone output and public assets from the builder stage
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/public ./public
+
+# Create a non-root user for security
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+USER nextjs
+
+# Expose the port the application runs on
+EXPOSE 3000
 
 # Command to run the application
 CMD ["npm", "start"]
