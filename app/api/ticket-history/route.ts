@@ -7,7 +7,7 @@ import { initializeDatabase, putTickets, getAllTickets, getTotalTicketCount, put
 // In a production serverless environment, this would need a persistent store (e.g., Redis, another DB table)
 // For a long-running VPS process, this can work as a simple in-memory cache timestamp.
 let lastSuccessfulSync: number = 0;
-const SYNC_INTERVAL_MS = 30 * 1000; // 30 seconds
+const SYNC_INTERVAL_MS = 3 * 1000; // 3 seconds
 
 // --- Interfaces Detalhadas do Chatwoot e para o Frontend ---
 interface CustomAttributes {

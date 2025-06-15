@@ -45,4 +45,5 @@ EXPOSE 3000
 
 # Command to run the application
 # Next.js standalone output creates a self-contained server.js
-CMD ["node", "server.js"]
+# We explicitly set the hostname to 0.0.0.0 to ensure it's reachable from outside the container
+CMD ["node", "server.js", "-H", "0.0.0.0"]
