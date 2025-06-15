@@ -2,6 +2,7 @@
 const nextConfig = {
   reactStrictMode: true,
   output: 'standalone',
+  optimizeCss: false, // Temporarily disable CSS optimization to debug loading issues
   
   // Configuração de imagens
   images: {
