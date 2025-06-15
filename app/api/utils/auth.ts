@@ -16,7 +16,11 @@ export const verifyAuth = async () => {
     }
 
     try {
-        const secret = new TextEncoder().encode(process.env.JWT_SECRET || 'your-secret-key');
+        const JWT_SECRET = process.env.JWT_SECRET;
+        if (!JWT_SECRET) {
+            throw new Error('❌ Missing JWT_SECRET environment variable in auth utility');
+        }
+        const secret = new TextEncoder().encode(JWT_SECRET);
         const { payload } = await jwtVerify(token, secret);
         return payload as unknown as AuthToken;
     } catch (error) {

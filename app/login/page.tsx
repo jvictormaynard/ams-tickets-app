@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Head from 'next/head';
 import Image from 'next/image';
 
 const LOGO_URL = "https://s3.dev.amssergipe.com.br/general/b84493fc-cbf9-4f67-9abf-020f25a32447.png";
@@ -39,18 +38,11 @@ export default function LoginPage() {
                 throw new Error(data.error || 'Erro ao fazer login');
             }
 
-            // Set authentication in localStorage
-            localStorage.setItem('isAuthenticated', 'true');
-            localStorage.setItem('loginTimestamp', Date.now().toString());
-            
             // Navigate after setting auth
             router.replace('/');
         } catch (err: any) {
             console.error('Login error:', err); // debug error
             setError(err.message || 'Erro ao fazer login');
-            // Clear any stale auth data
-            localStorage.removeItem('isAuthenticated');
-            localStorage.removeItem('loginTimestamp');
         } finally {
             setIsLoading(false);
         }
@@ -58,9 +50,6 @@ export default function LoginPage() {
 
     return (
         <>
-            <Head>
-                <title>Login - Painel de Tickets AMS</title>
-            </Head>
             <div className="login-container">
                 <div className="floating-logo">
                     <Image

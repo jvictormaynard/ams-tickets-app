@@ -29,13 +29,15 @@ ENV PORT=3000
 # Copy package.json from builder to ensure `npm start` works
 COPY --from=builder /app/package.json ./
 
-# Copy the standalone output and public assets from the builder stage
+# Copy the standalone output, public assets, and data from the builder stage
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/public ./public
+COPY --from=builder /app/data ./data
 
-# Create cache directory and set permissions for the non-root user
+# Create cache and data directories and set permissions for the non-root user
 RUN mkdir -p .next/cache && \
-    chown -R node:node .next/cache
+    mkdir -p /app/data && \
+    chown -R node:node .next/cache /app/data
 
 # Use the existing `node` user for security
 USER node
@@ -45,5 +47,4 @@ EXPOSE 3000
 
 # Command to run the application
 # Next.js standalone output creates a self-contained server.js
-# We explicitly set the hostname to 0.0.0.0 to ensure it's reachable from outside the container
-CMD ["node", "server.js", "-H", "0.0.0.0"]
+CMD ["node", "server.js"]

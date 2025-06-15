@@ -2,43 +2,18 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation'; // Import useRouter
+import { useRouter, usePathname } from 'next/navigation'; // Import useRouter and usePathname
 
-// --- Interfaces (devem corresponder às da API, incluindo attachments) ---
-interface ChatwootAttachment { // Necessária para os anexos
-    id: number;
-    file_type: 'image' | 'audio' | 'video' | 'file' | 'story_mention' | 'fallback';
-    data_url: string;
-    thumb_url?: string;
-    file_name?: string;
-}
+import {
+    ChatwootAttachment,
+    TicketForFrontend,
+    ConversationMessageForFrontend,
+    ConversationData,
+} from '../types';
+import TicketTable from '../components/TicketTable';
+import ConversationModal from '../components/ConversationModal';
 
-interface TicketForFrontend {
-    id: string;
-    status: string;
-    statusClass: string;
-    type: string;
-    assunto: string;
-    agent: string;
-    dateCreated: string;
-    lastActivityAt: number;
-    contactName: string;
-    empresa: string;
-    modalDescription: string;
-}
-
-interface ConversationMessageForFrontend {
-    id: number;
-    sender: string;
-    text: string; // Este texto virá da API já com o placeholder se for só anexo
-    timestamp: number;
-    isSystemMessage: boolean;
-    attachments?: ChatwootAttachment[]; // <<<< ADICIONADO PARA ANEXOS
-}
-
-interface ConversationData {
-    [ticketId: string]: ConversationMessageForFrontend[];
-}
+export const dynamic = 'force-dynamic'; // Force dynamic rendering for this page
 
 const LOGO_URL = "https://s3.dev.amssergipe.com.br/general/frgtbsrravgteb.png";
 
@@ -74,31 +49,10 @@ export default function TicketDashboardPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [currentPage, setCurrentPage] = useState(1); // New state for current page
-    const ticketsPerPage = 25; // Max tickets per page
+    const ticketsPerPage = 20; // Max tickets per page (aligned with Chatwoot API fixed page size)
     const [totalTicketsCount, setTotalTicketsCount] = useState(0); // New state for total ticket count
     const router = useRouter(); // Initialize useRouter
-    const [isAuthenticating, setIsAuthenticating] = useState(true); // New state for auth check
-
-    useEffect(() => {
-        const isAuthenticated = localStorage.getItem('isAuthenticated');
-        const loginTimestamp = localStorage.getItem('loginTimestamp');
-        const oneHour = 60 * 60 * 1000; // 1 hour in milliseconds
-
-        if (isAuthenticated && loginTimestamp) {
-            const timeSinceLogin = Date.now() - parseInt(loginTimestamp, 10);
-            if (timeSinceLogin < oneHour) {
-                setIsAuthenticating(false); // User is authenticated and session is valid
-            } else {
-                // Session expired
-                localStorage.removeItem('isAuthenticated');
-                localStorage.removeItem('loginTimestamp');
-                router.push('/login');
-            }
-        } else {
-            // Not authenticated or no timestamp
-            router.push('/login');
-        }
-    }, [router]);
+    const pathname = usePathname(); // Get current pathname
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -115,6 +69,7 @@ export default function TicketDashboardPage() {
             setAllTickets(data.tickets || []);
             setTicketConversations(data.conversations || {});
             setTotalTicketsCount(data.totalTicketsCount || 0); // Set total ticket count
+            console.log('PAGE: Fetched data - Total Tickets Count:', data.totalTicketsCount); // Debug log
         } catch (err: any) {
             console.error("PAGE: Erro ao buscar dados:", err);
             setError(err.message || "Ocorreu um erro ao carregar os tickets.");
@@ -124,15 +79,14 @@ export default function TicketDashboardPage() {
     }, [currentPage, ticketsPerPage]); // Add currentPage and ticketsPerPage to dependency array
 
     useEffect(() => {
-        if (!isAuthenticating) { // Only fetch data if authenticated
-            fetchData();
-            // Re-fetch data on interval only if not searching and not on a specific page
-            const intervalId = setInterval(() => {
-                if (!searchTerm && currentPage === 1) { fetchData(); }
-            }, 30000);
-            return () => clearInterval(intervalId);
-        }
-    }, [fetchData, searchTerm, isAuthenticating, currentPage]); // Add currentPage to dependency array
+        fetchData();
+        // Re-fetch data on interval only if not searching and not on a specific page
+        // This interval will be removed once webhooks are fully reliable in production
+        const intervalId = setInterval(() => {
+            if (!searchTerm && currentPage === 1) { fetchData(); }
+        }, 30000);
+        return () => clearInterval(intervalId);
+    }, [fetchData, searchTerm, currentPage]);
 
     useEffect(() => {
         let tempFiltered = [...allTickets];
@@ -177,11 +131,8 @@ export default function TicketDashboardPage() {
     const handleCloseConversationHistory = () => setModalVisible(false);
 
     // Pagination logic
-    const indexOfLastTicket = currentPage * ticketsPerPage;
-    const indexOfFirstTicket = indexOfLastTicket - ticketsPerPage;
-    // When searching, we paginate over filteredTickets. When not searching, we paginate over allTickets (which are paginated by API)
-    const ticketsToPaginate = searchTerm ? filteredTickets : allTickets;
-    const currentTickets = ticketsToPaginate.slice(indexOfFirstTicket, indexOfLastTicket);
+    // When searching, we paginate over filteredTickets. When not searching, we use allTickets (which are already paginated by API)
+    const currentTickets = searchTerm ? filteredTickets.slice((currentPage - 1) * ticketsPerPage, currentPage * ticketsPerPage) : allTickets;
     const totalPages = Math.ceil((searchTerm ? filteredTickets.length : totalTicketsCount) / ticketsPerPage);
 
     const handleNextPage = () => {
@@ -192,14 +143,6 @@ export default function TicketDashboardPage() {
         setCurrentPage((prev: number) => Math.max(prev - 1, 1));
     };
 
-    // Render a loading state or null while checking authentication
-    if (isAuthenticating) {
-        return (
-            <div className="dashboard-container dashboard-v2" style={{ textAlign: 'center', padding: '50px', color: '#e0e0e0' }}>
-                <p>Verificando autenticação...</p>
-            </div>
-        );
-    }
 
     if (loading && allTickets.length === 0) {
         return (
@@ -227,6 +170,14 @@ export default function TicketDashboardPage() {
                     <h1>Painel de Tickets</h1>
                 </div>
 
+                {/* New navigation/tabs section */}
+                <div className="dashboard-nav-tabs">
+                    <button className="nav-tab active">Solicitações</button>
+                    <button className="nav-tab" onClick={() => router.push('/stats')}>
+                        Estatísticas e Dashboards
+                    </button>
+                </div>
+
                 <div className="search-bar-container-v2">
                     <input
                         type="text"
@@ -237,16 +188,17 @@ export default function TicketDashboardPage() {
                     <button onClick={() => fetchData()} className="refresh-button" title="Atualizar lista de tickets">
                         &#x21bb; {/* Unicode for refresh symbol */}
                     </button>
+                    {loading && allTickets.length > 0 && (
+                        <div className="inline-spinner-container">
+                            <div className="loading-spinner small-spinner"></div>
+                            <span className="loading-text">Atualizando...</span>
+                        </div>
+                    )}
                 </div>
                 
                 {error && !loading && allTickets.length > 0 &&
                     <p className="warning-message">
                         Aviso ao tentar atualizar: {error} (Exibindo últimos dados carregados)
-                    </p>
-                }
-                {loading && allTickets.length > 0 &&
-                    <p className="info-message">
-                        Atualizando lista de solicitações...
                     </p>
                 }
 
@@ -256,34 +208,11 @@ export default function TicketDashboardPage() {
                     </div>
                 ) : (
                     <>
-                        <table id="ticketsTable" className="tickets-table-v2">
-                            <thead>
-                                <tr>
-                                    <th style={{width: '35%'}}>Assunto</th>
-                                    <th style={{width: '5%'}}>ID</th>
-                                    <th style={{width: '15%'}}>Empresa</th>
-                                    <th style={{width: '15%'}}>Solicitante</th>
-                                    <th style={{width: '10%'}}>Agente</th>
-                                    <th style={{width: '10%'}}>Criado em</th>
-                                    <th style={{width: '10%'}}>Última Atualização</th>
-                                    <th style={{width: '10%'}}>Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {currentTickets.map(ticket => ( // Use currentTickets here
-                                    <tr key={ticket.id} className="ticket-row" onClick={() => handleShowConversationHistory(ticket)}>
-                                        <td className="assunto-cell" data-label="Assunto" title={ticket.assunto}>{ticket.assunto}</td>
-                                        <td data-label="ID">#{ticket.id}</td>
-                                        <td data-label="Empresa" title={ticket.empresa}>{ticket.empresa}</td>
-                                        <td data-label="Solicitante" title={ticket.contactName}>{ticket.contactName}</td>
-                                        <td data-label="Agente">{ticket.agent}</td>
-                                        <td data-label="Criado em">{ticket.dateCreated}</td>
-                                        <td data-label="Última Atualização">{formatLastActivity(ticket.lastActivityAt)}</td>
-                                        <td data-label="Status"><span className={`status ${ticket.statusClass}`}>{ticket.status}</span></td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                        <TicketTable
+                            tickets={currentTickets}
+                            onTicketClick={handleShowConversationHistory}
+                            formatLastActivity={formatLastActivity}
+                        />
                         {totalPages > 1 && (
                             <div className="pagination-controls">
                                 <button onClick={handlePrevPage} disabled={currentPage === 1}>
@@ -298,110 +227,13 @@ export default function TicketDashboardPage() {
                     </>
                 )}
 
-                {/* Modal de Histórico */}
-                {modalVisible && currentTicketForModal && (
-                    <div 
-                        className={`conversation-history-modal-overlay ${modalVisible ? 'modal-active' : ''}`}
-                        onClick={handleCloseConversationHistory} // Close modal when clicking outside
-                    >
-                        <div 
-                            id="conversationHistoryModal" 
-                            className="conversation-history-modal" 
-                            role="dialog" 
-                            aria-modal="true" 
-                            onClick={(e) => e.stopPropagation()} // Prevent clicks inside modal from closing it
-                        >
-                        <button className="close-history" onClick={handleCloseConversationHistory}>Fechar Histórico X</button>
-                        <h3>
-                            Ticket #{currentTicketForModal.id}: {currentTicketForModal.assunto}
-                            <br/>
-                            <span style={{fontSize: '0.9em', color: '#ccc'}}>
-                                Solicitante: {currentTicketForModal.contactName} ({currentTicketForModal.empresa || 'Empresa não informada'})
-                            </span>
-                        </h3>
-                        <div id="historyMessages" style={{ maxHeight: '450px', overflowY: 'auto', paddingRight: '10px', display: 'flex', flexDirection: 'column' }}>
-                            {ticketConversations[currentTicketForModal.id] && ticketConversations[currentTicketForModal.id].length > 0 ? (
-                                (() => {
-                                    let lastDisplayedDate: string | null = null;
-                                    return ticketConversations[currentTicketForModal.id]
-                                        .sort((a: ConversationMessageForFrontend, b: ConversationMessageForFrontend) => a.timestamp - b.timestamp)
-                                        .map((msg: ConversationMessageForFrontend) => {
-                                            const { date, time } = formatMessageTimestampDetails(msg.timestamp);
-                                            const showDateSeparator = date !== lastDisplayedDate;
-                                            if (showDateSeparator) {
-                                                lastDisplayedDate = date;
-                                            }
-                                            return (
-                                                <div key={msg.id}>
-                                                    {showDateSeparator && (
-                                                        <div className="message-date-separator"><span>{date}</span></div>
-                                                    )}
-                                                    <div className={`message ${msg.isSystemMessage ? 'system' : (msg.sender.includes('(Cliente)') ? 'customer' : 'agent')}`}>
-                                                        {!msg.isSystemMessage && (
-                                                            <span className="sender">
-                                                                {msg.sender}
-                                                                <span className="message-time">{time}</span>
-                                                            </span>
-                                                        )}
-                                                        
-                                                        {/* MODIFICAÇÃO PRINCIPAL AQUI: Renderização de texto e/ou anexos */}
-                                                        <div className="message-content">
-                                                            {/* Renderiza o texto se ele existir E não for apenas o placeholder de anexo que a API já trata */}
-                                                            {msg.text && !(msg.attachments && msg.attachments.length > 0 && msg.text.startsWith('[')) &&
-                                                                <span className="message-text">{msg.text}</span>
-                                                            }
-                                                            {/* Renderiza os anexos */}
-                                                            {msg.attachments && msg.attachments.map((att: ChatwootAttachment) => (
-                                                                <div key={att.id} className="message-attachment">
-                                                                    {att.file_type === 'image' ? (
-                                                                        // eslint-disable-next-line @next/next/no-img-element
-                                                                        <img 
-                                                                            src={att.data_url} 
-                                                                            alt={att.file_name || 'Imagem anexa'} 
-                                                                            style={{ maxWidth: '100%', maxHeight: '250px', borderRadius: '4px', marginTop: msg.text && !(msg.attachments && msg.attachments.length > 0 && msg.text.startsWith('[')) ? '8px' : '0px' }} 
-                                                                        />
-                                                                    ) : att.file_type === 'audio' ? (
-                                                                        <audio controls src={att.data_url} style={{ marginTop: '8px', width: '100%' }}>
-                                                                            Seu navegador não suporta o elemento de áudio.
-                                                                        </audio>
-                                                                    ) : att.file_type === 'video' ? (
-                                                                        <video controls src={att.data_url} style={{ maxWidth: '100%', maxHeight: '250px', borderRadius: '4px', marginTop: '8px' }}>
-                                                                            Seu navegador não suporta o elemento de vídeo.
-                                                                        </video>
-                                                                    ) : ( // file e outros
-                                                                        <a 
-                                                                            href={att.data_url} 
-                                                                            target="_blank" 
-                                                                            rel="noopener noreferrer"
-                                                                            className="attachment-link"
-                                                                            style={{ marginTop: msg.text && !(msg.attachments && msg.attachments.length > 0 && msg.text.startsWith('[')) ? '8px' : '0px' }}
-                                                                        >
-                                                                            📎 {att.file_name || `Anexo (${att.file_type})`}
-                                                                        </a>
-                                                                    )}
-                                                                </div>
-                                                            ))}
-                                                             {/* Se não houver texto principal nem anexos (deve ser raro agora), ou se o texto for só o placeholder e não houver anexo visualizado */}
-                                                            {(!msg.text || (msg.text.startsWith('[') && msg.text.endsWith(']') && (!msg.attachments || msg.attachments.length ===0 ))) && !msg.isSystemMessage && (!msg.attachments || msg.attachments.length === 0) &&
-                                                                <span className="message-text">(Mensagem sem conteúdo visível)</span>
-                                                            }
-                                                        </div>
-
-                                                        {msg.isSystemMessage && (
-                                                            <span className="message-time system-time">{time}</span>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            );
-                                        })
-                                })()
-                            ) : (
-                                <p>Nenhum histórico de mensagens encontrado para este ticket.</p>
-                            )}
-                        </div>
-                    </div>
-                </div>
-                )}
+                <ConversationModal
+                    visible={modalVisible}
+                    onClose={handleCloseConversationHistory}
+                    ticket={currentTicketForModal}
+                    conversations={ticketConversations}
+                    formatMessageTimestampDetails={formatMessageTimestampDetails}
+                />
             </div>
         </>
     );

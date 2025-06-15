@@ -133,19 +133,41 @@ export function transformChatwootConversationToTicket(
         if (firstMessageContent) modalDesc = firstMessageContent;
     }
 
-    let statusText = conv.status.charAt(0).toUpperCase() + conv.status.slice(1);
-    let statusClass = `status-${conv.status.toLowerCase()}`;
+    let statusText: string;
+    let statusClass: string;
     const hasLojaParadaTag = conv.labels?.includes('loja-parada');
 
     if (hasLojaParadaTag) {
         statusText = "Loja Parada";
         statusClass = "status-loja-parada";
     } else {
+        // Default status text and class based on Chatwoot status
         switch (conv.status.toLowerCase()) {
-            case "resolved": statusText = "Resolvido"; statusClass = "status-resolved"; break;
-            case "pending": statusText = "Pendente"; statusClass = "status-on-hold"; break;
-            case "open": statusText = "Aberto"; statusClass = "status-aberto"; break;
-            case "snoozed": statusText = "Adiado"; statusClass = "status-on-hold"; break;
+            case "resolved":
+                statusText = "Resolvido";
+                statusClass = "status-resolved";
+                break;
+            case "pending":
+                statusText = "Pendente";
+                statusClass = "status-pending"; // Use specific class for pending
+                break;
+            case "open":
+                statusText = "Aberto";
+                statusClass = "status-aberto";
+                break;
+            case "snoozed":
+            case "on-hold": // Map "on-hold" from Chatwoot to "Adiado"
+            case "on_hold": // Also map "on_hold" (with underscore) to "Adiado"
+            case "on hold": // Also map "on hold" (with space) to "Adiado"
+                statusText = "Adiado";
+                statusClass = "status-snoozed"; // Use specific class for snoozed
+                break;
+            default:
+                // Fallback for any other status not explicitly handled
+                // If Chatwoot status is not one of the explicit cases, use its raw value
+                statusText = conv.status.charAt(0).toUpperCase() + conv.status.slice(1);
+                statusClass = `status-${conv.status.toLowerCase()}`;
+                break;
         }
     }
 
@@ -153,7 +175,7 @@ export function transformChatwootConversationToTicket(
         id: conv.id.toString(),
         status: statusText,
         statusClass: statusClass,
-        type: conv.meta?.inbox?.name || "N/A",
+        type: conv.meta?.inbox?.name || "Não Classificado", // Change default from "N/A"
         assunto: assunto.substring(0, 80) + (assunto.length > 80 ? "..." : ""),
         agent: conv.meta?.assignee?.name || "N/A",
         dateCreated: new Date(conv.created_at * 1000).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }),
@@ -219,7 +241,6 @@ async function syncDataWithChatwoot(
     CHATWOOT_URL: string,
     ACCOUNT_ID: string,
     API_TOKEN: string,
-    // Removed page, perPage as we will fetch all conversations
     isSpecificContactSearch: boolean,
     contactIdParam: string | null
 ) {
@@ -227,16 +248,20 @@ async function syncDataWithChatwoot(
         let allRawConversations: ChatwootConversation[] = [];
         let conversationsPage = 1;
         let hasMoreConversations = true;
+        let conversationsFetchedCount = 0;
+        let totalConversationsFromAPI = 0; // To store meta.all_count
 
+        console.log('SYNC: Starting conversation fetch from Chatwoot...');
         while (hasMoreConversations) {
             let conversationsUrl: string;
             if (isSpecificContactSearch) {
                 conversationsUrl = `${CHATWOOT_URL}/api/v1/accounts/${ACCOUNT_ID}/contacts/${contactIdParam}/conversations`;
                 hasMoreConversations = false; // Only one call for specific contact
             } else {
-                // Assuming 'page' and 'per_page' are supported for conversations endpoint
-                conversationsUrl = `${CHATWOOT_URL}/api/v1/accounts/${ACCOUNT_ID}/conversations?status=all&sort=-last_activity_at&page=${conversationsPage}&per_page=100`; // Fetch more per page
+                // Use 'page' parameter with fixed per_page=20 as per Chatwoot API behavior
+                conversationsUrl = `${CHATWOOT_URL}/api/v1/accounts/${ACCOUNT_ID}/conversations?status=all&sort=-last_activity_at&page=${conversationsPage}&per_page=20`; // Fixed at 20
             }
+            console.log(`SYNC: Fetching conversations from: ${conversationsUrl}`);
 
             const response = await fetch(conversationsUrl, {
                 headers: { 'api_access_token': API_TOKEN },
@@ -244,7 +269,7 @@ async function syncDataWithChatwoot(
 
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({ message: "Erro desconhecido" }));
-                console.error(`API: Falha ao buscar conversas (${response.status}): ${errorData.message || response.statusText} para URL: ${conversationsUrl}`);
+                console.error(`SYNC: Falha ao buscar conversas (${response.status}): ${errorData.message || response.statusText} para URL: ${conversationsUrl}`);
                 throw new Error(`Falha ao buscar conversas do Chatwoot: ${errorData.message || response.statusText}`);
             }
 
@@ -252,30 +277,42 @@ async function syncDataWithChatwoot(
             const currentConversationsPage: ChatwootConversation[] = isSpecificContactSearch
                 ? chatwootPayload.payload
                 : chatwootPayload.data.payload;
+            
+            if (chatwootPayload.data && typeof chatwootPayload.data.meta?.all_count === 'number') {
+                totalConversationsFromAPI = chatwootPayload.data.meta.all_count;
+                console.log(`SYNC: Chatwoot API reports total conversations: ${totalConversationsFromAPI}`);
+            }
 
             if (!Array.isArray(currentConversationsPage)) {
-                console.error("API: Resposta inesperada (esperava array de conversas):", currentConversationsPage);
+                console.error("SYNC: Resposta inesperada (esperava array de conversas):", currentConversationsPage);
                 throw new Error("Formato de resposta inválido da API de conversas.");
             }
 
-            if (currentConversationsPage.length === 0 || isSpecificContactSearch) {
+            if (currentConversationsPage.length === 0) {
+                console.log('SYNC: No more conversations to fetch.');
                 hasMoreConversations = false;
             } else {
                 allRawConversations = allRawConversations.concat(currentConversationsPage);
+                conversationsFetchedCount += currentConversationsPage.length;
+                console.log(`SYNC: Fetched ${currentConversationsPage.length} conversations. Total fetched: ${conversationsFetchedCount}`);
                 conversationsPage++;
-                // If less than per_page, it's the last page
-                if (currentConversationsPage.length < 100) {
+                // If this was a specific contact search, we assume all conversations are returned in one go.
+                // Otherwise, continue fetching until an empty page is returned.
+                if (isSpecificContactSearch) {
                     hasMoreConversations = false;
                 }
             }
         }
 
+        console.log(`SYNC: Finished fetching all conversations. Total accumulated: ${allRawConversations.length}`);
         const rawConversations = allRawConversations; // Use the accumulated conversations
 
         const ticketsToStore: TicketForFrontend[] = [];
         const conversationsToStore: { [ticketId: string]: ConversationMessageForFrontend[] } = {};
 
+        console.log('SYNC: Processing conversations and fetching messages...');
         for (const conv of rawConversations) {
+            console.log(`SYNC: Processing conversation ${conv.id}...`);
             let contactDetails: ChatwootContact | null = null;
             if (conv.meta.sender?.id) {
                 contactDetails = await getContactDetails(conv.meta.sender.id, ACCOUNT_ID, CHATWOOT_URL, API_TOKEN);
@@ -289,18 +326,20 @@ async function syncDataWithChatwoot(
             let before: string | null = null;
             const contactNameForMessages = conv.meta.sender?.name || "Contato";
 
+            let messagesFetchedCount = 0;
             while (true) {
                 let messagesUrl = `${CHATWOOT_URL}/api/v1/accounts/${ACCOUNT_ID}/conversations/${conv.id}/messages`;
                 if (before) {
                     messagesUrl += `?before=${before}`;
                 }
+                // console.log(`SYNC: Fetching messages for conv ${conv.id} from: ${messagesUrl}`); // Too verbose, uncomment if needed
 
                 const messagesResponse = await fetch(messagesUrl, {
                     headers: { 'api_access_token': API_TOKEN },
                 });
 
                 if (!messagesResponse.ok) {
-                    console.warn(`API: Não foi possível buscar mensagens para a conversa ${conv.id} com 'before'=${before}. Status: ${messagesResponse.status}`);
+                    console.warn(`SYNC: Não foi possível buscar mensagens para a conversa ${conv.id} com 'before'=${before}. Status: ${messagesResponse.status}`);
                     break;
                 }
 
@@ -312,6 +351,7 @@ async function syncDataWithChatwoot(
                 }
 
                 allMessages = allMessages.concat(messages);
+                messagesFetchedCount += messages.length;
 
                 if (messages.length < 20) {
                     // Less than 20 messages, so this is the last page
@@ -321,20 +361,24 @@ async function syncDataWithChatwoot(
                 // Get the id of the oldest message to use as the 'before' parameter
                 before = messages[messages.length - 1].id.toString();
             }
+            console.log(`SYNC: Fetched ${messagesFetchedCount} messages for conversation ${conv.id}.`);
 
-            if (allMessages.length > 0) {
-                conversationsToStore[conv.id.toString()] = transformChatwootMessagesForFrontend(allMessages, contactNameForMessages);
+            // Filter out potential duplicates by message ID
+            const uniqueMessages = Array.from(new Map(allMessages.map(msg => [msg.id, msg])).values());
+
+            if (uniqueMessages.length > 0) {
+                conversationsToStore[conv.id.toString()] = transformChatwootMessagesForFrontend(uniqueMessages, contactNameForMessages);
             } else {
                 conversationsToStore[conv.id.toString()] = [{ id: Date.now(), sender: "Sistema", text: "Nenhum histórico de mensagens encontrado para esta conversa.", timestamp: Math.floor(Date.now()/1000), isSystemMessage: true, attachments: [] }];
             }
         }
 
+        console.log('SYNC: All conversations and messages processed. Storing in SQLite...');
         // Store fetched data in SQLite
         await putTickets(ticketsToStore);
         await putConversations(conversationsToStore);
-        console.log('Data successfully synchronized with Chatwoot and stored in SQLite.');
-        return { tickets: ticketsToStore, conversations: conversationsToStore };
-
+        console.log('SYNC: Data successfully synchronized with Chatwoot and stored in SQLite.');
+        return { tickets: ticketsToStore, conversations: conversationsToStore, totalConversationsFromAPI: totalConversationsFromAPI }; // Return totalConversationsFromAPI
     } catch (error: any) {
         console.error("API: Erro durante a sincronização com Chatwoot:", error.message, error.stack);
         throw error; // Re-throw to be caught by the main GET handler
@@ -367,34 +411,52 @@ export async function GET(request: NextRequest) {
         let servedFromCache = false;
 
         let totalTicketsCount = await getTotalTicketCount();
+        let chatwootTotalCount = 0; // Initialize to 0
 
         // If the database is empty, perform an initial full sync
         if (totalTicketsCount === 0) {
-            console.log('Database is empty. Initiating initial full sync with Chatwoot.');
+            console.log('API: Database is empty. Initiating initial full sync with Chatwoot.');
             const syncedData = await syncDataWithChatwoot(CHATWOOT_URL, ACCOUNT_ID, API_TOKEN, false, null); // Fetch all, not specific contact
             tickets = syncedData.tickets;
             conversationDetails = syncedData.conversations;
             totalTicketsCount = await getTotalTicketCount(); // Recalculate total count after initial sync
+            chatwootTotalCount = syncedData.totalConversationsFromAPI; // Get total count from syncDataWithChatwoot
         } else {
             // With webhooks, we always serve from the cache for immediate response.
             // The cache is kept up-to-date by incoming webhook events.
-            console.log('Serving data from SQLite cache (updated by webhooks).');
+            console.log('API: Serving data from SQLite cache (updated by webhooks).');
             const parsedPage = parseInt(page);
             const parsedPerPage = parseInt(perPage);
             tickets = await getAllTickets(parsedPage, parsedPerPage);
             const ticketIds = tickets.map(ticket => ticket.id);
             conversationDetails = await getConversationsByIds(ticketIds);
+
+            // For subsequent requests, we also need the total count from Chatwoot for pagination.
+            // This should ideally be cached or updated via webhooks for performance.
+            // For now, re-fetching the first page to get meta.all_count
+            const firstPageResponse = await fetch(`${CHATWOOT_URL}/api/v1/accounts/${ACCOUNT_ID}/conversations?status=all&sort=-last_activity_at&page=1&per_page=20`, {
+                headers: { 'api_access_token': API_TOKEN },
+            });
+            if (firstPageResponse.ok) {
+                const firstPagePayload = await firstPageResponse.json();
+                if (firstPagePayload.data && typeof firstPagePayload.data.meta?.all_count === 'number') {
+                    chatwootTotalCount = firstPagePayload.data.meta.all_count;
+                    console.log(`API: Retrieved Chatwoot total count: ${chatwootTotalCount}`);
+                }
+            } else {
+                console.warn(`API: Failed to retrieve Chatwoot total count on subsequent request: ${firstPageResponse.status}`);
+            }
         }
 
         // If after all attempts, we still have no tickets, return an error
-        if (tickets.length === 0 && totalTicketsCount === 0) {
-            return NextResponse.json({ error: 'Nenhum ticket disponível ou erro na sincronização.' }, { status: 500 });
+        if (tickets.length === 0 && totalTicketsCount === 0 && chatwootTotalCount === 0) {
+            return NextResponse.json({ error: 'Nenhum ticket disponível ou erro na sincronização inicial.' }, { status: 500 });
         }
 
         return NextResponse.json({
             tickets: tickets,
             conversations: conversationDetails,
-            totalTicketsCount: totalTicketsCount, // Return total count for frontend pagination
+            totalTicketsCount: chatwootTotalCount, // Return total count from Chatwoot API for frontend pagination
         });
 
     } catch (error: any) {

@@ -1,6 +1,5 @@
 // code/server/db.ts
 import sqlite3 from 'sqlite3';
-import { open } from 'sqlite';
 import path from 'path';
 
 // Define the path to the SQLite database file
@@ -13,76 +12,112 @@ if (!fs.existsSync(dataDir)) {
     fs.mkdirSync(dataDir, { recursive: true });
 }
 
-let dbInstance: any = null;
+import { Database, open } from 'sqlite';
+
+interface Ticket {
+    id: string;
+    status: string;
+    statusClass: string;
+    type: string;
+    assunto: string;
+    agent: string;
+    dateCreated: string;
+    lastActivityAt: number;
+    contactName: string;
+    empresa: string;
+    modalDescription: string;
+}
+
+interface Conversation {
+    ticketId: string;
+    messages: string; // Storing as JSON string
+}
+
+let dbInstance: Database | null = null;
 
 /**
  * Initializes the SQLite database and creates necessary tables.
  * @returns Promise that resolves with the database instance.
  */
-export const initializeDatabase = async () => {
+export const initializeDatabase = async (): Promise<Database> => {
     if (dbInstance) {
         return dbInstance;
     }
 
-    dbInstance = await open({
-        filename: DB_PATH,
-        driver: sqlite3.Database,
-    });
+    try {
+        dbInstance = await open({
+            filename: DB_PATH,
+            driver: sqlite3.Database,
+        });
 
-    await dbInstance.exec(`
-        CREATE TABLE IF NOT EXISTS tickets (
-            id TEXT PRIMARY KEY,
-            status TEXT,
-            statusClass TEXT,
-            type TEXT,
-            assunto TEXT,
-            agent TEXT,
-            dateCreated TEXT,
-            lastActivityAt INTEGER,
-            contactName TEXT,
-            empresa TEXT,
-            modalDescription TEXT
-        );
+        await dbInstance.exec(`
+            CREATE TABLE IF NOT EXISTS tickets (
+                id TEXT PRIMARY KEY,
+                status TEXT,
+                statusClass TEXT,
+                type TEXT,
+                assunto TEXT,
+                agent TEXT,
+                dateCreated TEXT,
+                lastActivityAt INTEGER,
+                contactName TEXT,
+                empresa TEXT,
+                modalDescription TEXT
+            );
 
-        CREATE TABLE IF NOT EXISTS conversations (
-            ticketId TEXT PRIMARY KEY,
-            messages TEXT, -- Storing as JSON string
-            FOREIGN KEY (ticketId) REFERENCES tickets(id) ON DELETE CASCADE
-        );
-    `);
-    console.log('SQLite database initialized and tables created.');
-    return dbInstance;
+            CREATE TABLE IF NOT EXISTS conversations (
+                ticketId TEXT PRIMARY KEY,
+                messages TEXT, -- Storing as JSON string
+                FOREIGN KEY (ticketId) REFERENCES tickets(id) ON DELETE CASCADE
+            );
+        `);
+        console.log('SQLite database initialized and tables created.');
+        return dbInstance;
+    } catch (error) {
+        console.error('Error initializing database:', error);
+        throw error;
+    }
 };
 
 /**
  * Inserts or updates a single ticket.
  * @param ticket The ticket object.
  */
-export const putTicket = async (ticket: any) => {
-    const db = await initializeDatabase();
-    await db.run(
-        `INSERT OR REPLACE INTO tickets (id, status, statusClass, type, assunto, agent, dateCreated, lastActivityAt, contactName, empresa, modalDescription)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        ticket.id, ticket.status, ticket.statusClass, ticket.type, ticket.assunto, ticket.agent, ticket.dateCreated, ticket.lastActivityAt, ticket.contactName, ticket.empresa, ticket.modalDescription
-    );
+export const putTicket = async (ticket: Ticket): Promise<void> => {
+    try {
+        const db = await initializeDatabase();
+        await db.run(
+            `INSERT OR REPLACE INTO tickets (id, status, statusClass, type, assunto, agent, dateCreated, lastActivityAt, contactName, empresa, modalDescription)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            ticket.id, ticket.status, ticket.statusClass, ticket.type, ticket.assunto, ticket.agent, ticket.dateCreated, ticket.lastActivityAt, ticket.contactName, ticket.empresa, ticket.modalDescription
+        );
+    } catch (error) {
+        console.error('Error putting ticket:', error);
+        throw error;
+    }
 };
 
 /**
  * Inserts or updates multiple tickets.
  * @param tickets An array of ticket objects.
  */
-export const putTickets = async (tickets: any[]) => {
-    const db = await initializeDatabase();
-    const stmt = await db.prepare(`
-        INSERT OR REPLACE INTO tickets (id, status, statusClass, type, assunto, agent, dateCreated, lastActivityAt, contactName, empresa, modalDescription)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-    for (const ticket of tickets) {
-        await stmt.run(
-            ticket.id, ticket.status, ticket.statusClass, ticket.type, ticket.assunto, ticket.agent, ticket.dateCreated, ticket.lastActivityAt, ticket.contactName, ticket.empresa, ticket.modalDescription
-        );
+export const putTickets = async (tickets: Ticket[]): Promise<void> => {
+    try {
+        const db = await initializeDatabase();
+        const stmt = await db.prepare(`
+            INSERT OR REPLACE INTO tickets (id, status, statusClass, type, assunto, agent, dateCreated, lastActivityAt, contactName, empresa, modalDescription)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `);
+        for (const ticket of tickets) {
+            await stmt.run(
+                ticket.id, ticket.status, ticket.statusClass, ticket.type, ticket.assunto, ticket.agent, ticket.dateCreated, ticket.lastActivityAt, ticket.contactName, ticket.empresa, ticket.modalDescription
+            );
+        }
+        await stmt.finalize();
+    } catch (error) {
+        console.error('Error putting tickets:', error);
+        throw error;
     }
-    await stmt.finalize();
 };
 
 /**
@@ -91,10 +126,15 @@ export const putTickets = async (tickets: any[]) => {
  * @param perPage The number of tickets per page.
  * @returns Promise that resolves with an array of ticket objects for the current page.
  */
-export const getAllTickets = async (page: number, perPage: number): Promise<any[]> => {
-    const db = await initializeDatabase();
-    const offset = (page - 1) * perPage;
-    return db.all('SELECT * FROM tickets ORDER BY lastActivityAt DESC LIMIT ? OFFSET ?', perPage, offset);
+export const getAllTickets = async (page: number, perPage: number): Promise<Ticket[]> => {
+    try {
+        const db = await initializeDatabase();
+        const offset = (page - 1) * perPage;
+        return db.all('SELECT * FROM tickets ORDER BY lastActivityAt DESC LIMIT ? OFFSET ?', perPage, offset);
+    } catch (error) {
+        console.error('Error getting all tickets:', error);
+        throw error;
+    }
 };
 
 /**
@@ -102,9 +142,14 @@ export const getAllTickets = async (page: number, perPage: number): Promise<any[
  * @returns Promise that resolves with the total number of tickets.
  */
 export const getTotalTicketCount = async (): Promise<number> => {
-    const db = await initializeDatabase();
-    const result = await db.get('SELECT COUNT(*) as count FROM tickets');
-    return result.count;
+    try {
+        const db = await initializeDatabase();
+        const result = await db.get('SELECT COUNT(*) as count FROM tickets');
+        return result.count;
+    } catch (error) {
+        console.error('Error getting total ticket count:', error);
+        throw error;
+    }
 };
 
 /**
@@ -113,29 +158,39 @@ export const getTotalTicketCount = async (): Promise<number> => {
  * @param ticketId The ID of the ticket.
  * @param messages An array of message objects.
  */
-export const putConversationMessages = async (ticketId: string, messages: any[]) => {
-    const db = await initializeDatabase();
-    await db.run(
-        `INSERT OR REPLACE INTO conversations (ticketId, messages)
-         VALUES (?, ?)`,
-        ticketId, JSON.stringify(messages)
-    );
+export const putConversationMessages = async (ticketId: string, messages: any[]): Promise<void> => {
+    try {
+        const db = await initializeDatabase();
+        await db.run(
+            `INSERT OR REPLACE INTO conversations (ticketId, messages)
+             VALUES (?, ?)`,
+            ticketId, JSON.stringify(messages)
+        );
+    } catch (error) {
+        console.error('Error putting conversation messages:', error);
+        throw error;
+    }
 };
 
 /**
  * Inserts or updates multiple conversations.
  * @param conversations An object mapping ticket IDs to arrays of messages.
  */
-export const putConversations = async (conversations: { [ticketId: string]: any[] }) => {
-    const db = await initializeDatabase();
-    const stmt = await db.prepare(`
-        INSERT OR REPLACE INTO conversations (ticketId, messages)
-        VALUES (?, ?)
-    `);
-    for (const ticketId in conversations) {
-        await stmt.run(ticketId, JSON.stringify(conversations[ticketId]));
+export const putConversations = async (conversations: { [ticketId: string]: any[] }): Promise<void> => {
+    try {
+        const db = await initializeDatabase();
+        const stmt = await db.prepare(`
+            INSERT OR REPLACE INTO conversations (ticketId, messages)
+            VALUES (?, ?)
+        `);
+        for (const ticketId in conversations) {
+            await stmt.run(ticketId, JSON.stringify(conversations[ticketId]));
+        }
+        await stmt.finalize();
+    } catch (error) {
+        console.error('Error putting conversations:', error);
+        throw error;
     }
-    await stmt.finalize();
 };
 
 /**
@@ -144,9 +199,14 @@ export const putConversations = async (conversations: { [ticketId: string]: any[
  * @returns Promise that resolves with an array of message objects, or null if not found.
  */
 export const getConversationMessages = async (ticketId: string): Promise<any[] | null> => {
-    const db = await initializeDatabase();
-    const row = await db.get('SELECT messages FROM conversations WHERE ticketId = ?', ticketId);
-    return row ? JSON.parse(row.messages) : null;
+    try {
+        const db = await initializeDatabase();
+        const row = await db.get('SELECT messages FROM conversations WHERE ticketId = ?', ticketId);
+        return row ? JSON.parse(row.messages) : null;
+    } catch (error) {
+        console.error('Error getting conversation messages:', error);
+        throw error;
+    }
 };
 
 /**
@@ -158,14 +218,19 @@ export const getConversationsByIds = async (ticketIds: string[]): Promise<{ [tic
     if (ticketIds.length === 0) {
         return {};
     }
-    const db = await initializeDatabase();
-    const placeholders = ticketIds.map(() => '?').join(',');
-    const rows = await db.all(`SELECT ticketId, messages FROM conversations WHERE ticketId IN (${placeholders})`, ...ticketIds);
-    const result: { [ticketId: string]: any[] } = {};
-    rows.forEach((row: any) => {
-        result[row.ticketId] = JSON.parse(row.messages);
-    });
-    return result;
+    try {
+        const db = await initializeDatabase();
+        const placeholders = ticketIds.map(() => '?').join(',');
+        const rows = await db.all(`SELECT ticketId, messages FROM conversations WHERE ticketId IN (${placeholders})`, ...ticketIds);
+        const result: { [ticketId: string]: any[] } = {};
+        rows.forEach((row: Conversation) => {
+            result[row.ticketId] = JSON.parse(row.messages);
+        });
+        return result;
+    } catch (error) {
+        console.error('Error getting conversations by IDs:', error);
+        throw error;
+    }
 };
 
 /**
@@ -173,8 +238,13 @@ export const getConversationsByIds = async (ticketIds: string[]): Promise<{ [tic
  * @param tableName The name of the table to clear.
  */
 export const clearTable = async (tableName: string): Promise<void> => {
-    const db = await initializeDatabase();
-    await db.run(`DELETE FROM ${tableName}`);
+    try {
+        const db = await initializeDatabase();
+        await db.run(`DELETE FROM ${tableName}`);
+    } catch (error) {
+        console.error(`Error clearing table ${tableName}:`, error);
+        throw error;
+    }
 };
 
 /**

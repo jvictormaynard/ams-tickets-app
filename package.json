@@ -10,13 +10,14 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@heroicons/react": "^2.2.0",
     "@types/react-datepicker": "6.2.0",
     "@types/sqlite3": "^3.1.11",
     "bcryptjs": "^2.4.3",
-    "cookie": "0.6.0",
+    "cookie": "^1.0.2",
     "jose": "^6.0.11",
     "jsonwebtoken": "9.0.2",
-    "next": "14.1.0",
+    "next": "^14.2.30",
     "react": "18.2.0",
     "react-datepicker": "8.3.0",
     "react-dom": "18.2.0",

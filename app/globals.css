@@ -21,7 +21,7 @@ body {
     background: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
     color: #e0e0e0;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; /* Aligned with layout.tsx */
-    font-size: 14px;
+    font-size: 16px; /* Slightly larger base font for better readability */
     /* Removed flex centering for general body, apply to specific containers if needed */
     /* height: 100vh; removed as it can constrain scrolling */
 }
@@ -84,6 +84,74 @@ body {
     font-weight: 500;
 }
 
+/* New navigation tabs styles */
+.dashboard-nav-tabs {
+    display: flex;
+    gap: 15px; /* Space between tabs */
+    margin-bottom: 25px;
+    border-bottom: 1px solid #2c3035;
+    padding-bottom: 10px;
+}
+
+.nav-tab {
+    background-color: transparent;
+    border: none;
+    color: #8899a6;
+    font-size: 15px;
+    padding: 8px 15px;
+    cursor: pointer;
+    transition: color 0.2s ease, border-bottom 0.2s ease;
+    position: relative;
+    outline: none;
+}
+
+.nav-tab:hover {
+    color: #e0e0e0;
+}
+
+.nav-tab.active {
+    color: var(--primary-blue);
+    border-bottom: 2px solid var(--primary-blue);
+    font-weight: 600;
+}
+
+.stats-dropdown-container {
+    position: relative;
+    display: inline-block;
+}
+
+.stats-filter-dropdown {
+    position: absolute;
+    top: 100%; /* Position below the button */
+    left: 0;
+    background-color: #25282c;
+    border: 1px solid #3a3f44;
+    border-radius: 4px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    min-width: 160px;
+    padding: 5px 0;
+}
+
+.filter-option {
+    background-color: transparent;
+    border: none;
+    color: #e0e0e0;
+    padding: 10px 15px;
+    text-align: left;
+    cursor: pointer;
+    font-size: 14px;
+    width: 100%;
+    transition: background-color 0.2s ease;
+}
+
+.filter-option:hover {
+    background-color: #007bff;
+    color: white;
+}
+
 .search-bar-container-v2 {
     margin-bottom: 25px;
     display: flex;
@@ -123,6 +191,36 @@ body {
     background-color: #0056b3; /* Darker blue on hover */
 }
 
+/* Inline spinner for subtle loading feedback */
+.inline-spinner-container {
+    display: flex;
+    align-items: center;
+    margin-left: 15px; /* Space from the button */
+    color: #a0a7af; /* Subtle text color */
+    font-size: 0.9em;
+}
+
+.loading-spinner {
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    border-top: 3px solid #007bff;
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    animation: spin 1s linear infinite;
+    margin-right: 8px;
+}
+
+.loading-spinner.small-spinner {
+    width: 16px;
+    height: 16px;
+    border-width: 2px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
 .tickets-table-v2 {
     width: 100%;
     border-collapse: collapse;
@@ -130,11 +228,11 @@ body {
 }
 
 .tickets-table-v2 th, .tickets-table-v2 td {
-    padding: 10px 12px;
+    padding: 12px 15px; /* Slightly more padding for touch targets */
     text-align: left;
     border-bottom: 1px solid #2c3035;
     vertical-align: middle;
-    font-size: 13px;
+    font-size: 14px; /* Slightly larger font for readability */
 }
 
 .tickets-table-v2 th {
@@ -160,14 +258,392 @@ body {
     cursor: pointer;
 }
 
-.status { padding: 5px 10px; border-radius: 15px; font-size: 12px; font-weight: 500; text-align: center; display: inline-block; min-width: 70px; }
-.status-open { background-color: #28a745; color: white; }
-.status-on-hold { background-color: #ffc107; color: #333; }
-.status-resolved { background-color: #6c757d; color: white; }
-.status-loja-parada { background-color: #dc3545; color: white; }
-.status-aberto { background-color: #dd3b00; color: white; } /* New status */
-.status-pendente { background-color: #ffab00; color: #212529; } /* New status */
-.status-adiado { background-color: #6c757d; color: white; } /* New status */
+.status { padding: 6px 12px; border-radius: 18px; font-size: 13px; font-weight: 500; text-align: center; display: inline-block; min-width: 75px; } /* Slightly larger for touch */
+.status-resolved { background-color: #28a745; color: white; } /* Green for resolved */
+.status-snoozed { background-color: #ffc107; color: #333; } /* Orange for snoozed/deferred */
+.status-pending { background-color: #007bff; color: white; } /* Blue for pending */
+.status-aberto { background-color: #dc3545; color: white; } /* Red for open/urgent */
+.status-loja-parada { background-color: #dc3545; color: white; } /* Dark red for critical */
+
+/* Stats Page Styles - Enhanced for "100x better" UI/UX */
+.stats-page {
+    /* Inherits from dashboard-v2, no major overrides needed here */
+}
+
+.period-filter-container {
+    position: relative;
+    width: 200px; /* Fixed width for the dropdown button */
+    margin: 0 auto 30px auto; /* Center and add margin */
+}
+
+.period-dropdown-button {
+    background-color: #25282c;
+    color: #e0e0e0;
+    border: 1px solid #3a3f44;
+    padding: 12px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 500;
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.period-dropdown-button:hover {
+    background-color: #3a3f44;
+    border-color: var(--primary-blue);
+}
+
+.period-dropdown-button .dropdown-arrow {
+    margin-left: 10px;
+    transition: transform 0.2s ease;
+}
+
+.period-dropdown-button.active .dropdown-arrow {
+    transform: rotate(180deg);
+}
+
+.period-dropdown-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    background-color: #25282c;
+    border: 1px solid #3a3f44;
+    border-radius: 8px;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+    z-index: 20; /* Ensure it's above other content */
+    display: flex;
+    flex-direction: column;
+    padding: 5px 0;
+    transform-origin: top;
+    animation: fadeInScale 0.2s ease-out forwards;
+}
+
+.period-dropdown-menu .filter-option {
+    background-color: transparent;
+    border: none;
+    color: #e0e0e0;
+    padding: 10px 20px;
+    text-align: left;
+    cursor: pointer;
+    font-size: 15px;
+    width: 100%;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.period-dropdown-menu .filter-option:hover {
+    background-color: var(--primary-blue);
+    color: white;
+}
+
+.period-dropdown-menu .filter-option.active {
+    background-color: var(--primary-blue);
+    color: white;
+    font-weight: 600;
+}
+
+@keyframes fadeInScale {
+    from {
+        opacity: 0;
+        transform: scaleY(0.9);
+    }
+    to {
+        opacity: 1;
+        transform: scaleY(1);
+    }
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); /* Slightly larger min-width for cards */
+    gap: 25px; /* Increased gap */
+    margin-bottom: 40px;
+}
+
+.stat-card {
+    background: linear-gradient(145deg, #25282c, #1a1d21); /* Subtle gradient background */
+    border-radius: 12px; /* More rounded corners */
+    padding: 25px; /* Increased padding */
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3); /* More prominent shadow */
+    border: 1px solid #3a3f44;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-5px); /* Lift on hover */
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+}
+
+.stat-icon {
+    font-size: 2.5em; /* Larger icons */
+    color: var(--primary-blue);
+    margin-bottom: 15px;
+    background: rgba(74, 201, 255, 0.1); /* Subtle background for icon */
+    padding: 10px;
+    border-radius: 50%;
+    width: 60px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.stat-card h3 {
+    margin-top: 0;
+    font-size: 1.2em; /* Slightly larger heading */
+    color: #e0e0e0; /* Brighter color for heading */
+    margin-bottom: 10px;
+    font-weight: 500;
+}
+
+.stat-value {
+    font-size: 3em; /* Much larger value */
+    font-weight: 700;
+    color: #4AC9FF; /* Primary blue for values */
+    line-height: 1;
+    text-shadow: 0 2px 5px rgba(0, 0, 0, 0.2); /* Subtle text shadow */
+}
+
+/* Specific colors for stat cards based on status */
+.stat-card.total .stat-icon { color: #4AC9FF; }
+.stat-card.resolved .stat-icon { color: #28a745; }
+.stat-card.pending .stat-icon { color: #007bff; }
+.stat-card.open .stat-icon { color: #dc3545; }
+.stat-card.snoozed .stat-icon { color: #ffc107; }
+.stat-card.critical .stat-icon { color: #dc3545; }
+.stat-card.avg-time .stat-icon { color: #6c757d; } /* Grey for time */
+
+.stat-card.total .stat-value { color: #4AC9FF; }
+.stat-card.resolved .stat-value { color: #28a745; }
+.stat-card.pending .stat-value { color: #007bff; }
+.stat-card.open .stat-value { color: #dc3545; }
+.stat-card.snoozed .stat-value { color: #ffc107; }
+.stat-card.critical .stat-value { color: #dc3545; }
+.stat-card.avg-time .stat-value { color: #6c757d; }
+
+.stats-section {
+    background: linear-gradient(145deg, #25282c, #1a1d21);
+    border-radius: 12px;
+    padding: 30px; /* Increased padding */
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+    border: 1px solid #3a3f44;
+    margin-bottom: 40px; /* Increased margin */
+}
+
+.stats-section h2 {
+    margin-top: 0;
+    font-size: 1.8em; /* Larger heading */
+    color: #e0e0e0;
+    border-bottom: 1px solid #3a3f44;
+    padding-bottom: 15px;
+    margin-bottom: 25px; /* Increased margin */
+    font-weight: 600;
+}
+
+.chart-section {
+    /* Specific styles for sections containing charts */
+}
+
+.status-distribution-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); /* Adjust for more items */
+    gap: 15px;
+}
+
+.status-item {
+    background-color: #3a3f44;
+    border-radius: 8px;
+    padding: 15px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s ease;
+}
+
+.status-item:hover {
+    transform: translateY(-3px);
+}
+
+.status-item .status-name {
+    font-size: 1em;
+    color: #c0c0c0;
+    margin-bottom: 8px;
+}
+
+.status-item .status-count {
+    font-size: 1.8em;
+    font-weight: 700;
+    color: var(--primary-blue);
+}
+
+/* Apply status colors to status-item */
+.status-item.status-resolved { background-color: #28a745; color: white; }
+.status-item.status-pending { background-color: #007bff; color: white; }
+.status-item.status-aberto { background-color: #dc3545; color: white; }
+.status-item.status-snoozed { background-color: #ffc107; color: #333; }
+/* Removed status-item.status-loja-parada as it's not a status */
+
+
+.bar-chart-container {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.bar-item {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    color: #c0c0c0;
+    font-size: 0.95em;
+}
+
+.bar-label {
+    flex-shrink: 0;
+    width: 120px; /* Fixed width for labels */
+    text-align: right;
+    font-weight: 500;
+    color: #e0e0e0;
+}
+
+.bar-wrapper {
+    flex-grow: 1;
+    display: flex;
+    align-items: center;
+    background-color: #3a3f44;
+    border-radius: 4px;
+    height: 25px; /* Height of the bar */
+    overflow: hidden; /* Ensure bar doesn't overflow */
+}
+
+.bar {
+    height: 100%;
+    background-color: var(--primary-blue);
+    border-radius: 4px;
+    transition: width 0.5s ease-out; /* Smooth animation for bar growth */
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 8px;
+    box-sizing: border-box;
+}
+
+.bar-value {
+    color: white;
+    font-weight: 600;
+    font-size: 0.9em;
+    margin-left: 10px; /* Space between bar and value */
+    flex-shrink: 0;
+}
+
+/* Specific bar colors */
+.bar.agent-bar { background-color: #007bff; }
+.bar.type-bar { background-color: #28a745; }
+
+/* Mobile Optimization for Stats Page */
+@media (max-width: 768px) {
+    .stats-filter-bar {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .stats-filter-bar .filter-option {
+        width: 100%;
+        text-align: center;
+        padding: 10px 15px; /* Adjust padding for mobile */
+        font-size: 14px;
+    }
+
+    .stats-grid {
+        grid-template-columns: 1fr; /* Single column on mobile */
+        gap: 15px;
+    }
+
+    .stat-card {
+        padding: 15px;
+        border-radius: 10px;
+    }
+
+    .stat-icon {
+        font-size: 2em;
+        width: 50px;
+        height: 50px;
+        margin-bottom: 10px;
+    }
+
+    .stat-card h3 {
+        font-size: 1.1em;
+        margin-bottom: 8px;
+    }
+
+    .stat-value {
+        font-size: 2.5em;
+    }
+
+    .stats-section {
+        padding: 20px;
+        border-radius: 10px;
+        margin-bottom: 25px;
+    }
+
+    .stats-section h2 {
+        font-size: 1.4em;
+        padding-bottom: 10px;
+        margin-bottom: 15px;
+    }
+
+    .status-distribution-grid {
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 10px;
+    }
+
+    .status-item {
+        padding: 10px;
+        border-radius: 6px;
+    }
+
+    .status-item .status-name {
+        font-size: 0.9em;
+    }
+
+    .status-item .status-count {
+        font-size: 1.5em;
+    }
+
+    .bar-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 5px;
+    }
+
+    .bar-label {
+        width: auto;
+        text-align: left;
+        font-size: 0.9em;
+    }
+
+    .bar-wrapper {
+        width: 100%; /* Full width for bars on mobile */
+        height: 20px;
+    }
+
+    .bar-value {
+        position: absolute; /* Position value inside bar for small screens */
+        right: 5px;
+        font-size: 0.8em;
+    }
+}
 
 /* Modal styles for transition */
 .conversation-history-modal-overlay {
@@ -210,20 +686,20 @@ body {
     opacity: 1;
 }
 
-.conversation-history-modal h3 { color: #4AC9FF; margin-top: 0; border-bottom: 1px solid #3a3f44; padding-bottom: 10px; margin-bottom: 20px; font-size: 18px; }
-.close-history { background-color: #dc3545; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-size: 13px; float: right; margin-bottom:10px; }
+.conversation-history-modal h3 { color: #4AC9FF; margin-top: 0; border-bottom: 1px solid #3a3f44; padding-bottom: 10px; margin-bottom: 20px; font-size: 20px; } /* Slightly larger for modals */
+.close-history { background-color: #dc3545; color: white; border: none; padding: 10px 18px; border-radius: 5px; cursor: pointer; font-size: 14px; float: right; margin-bottom:10px; } /* Larger touch target */
 .close-history:hover { background-color: #c82333; }
-.message { padding: 10px; margin-bottom: 10px; border-radius: 5px; line-height: 1.5; clear: both; }
-.message.customer { background-color: #353a3f; text-align: left; margin-right: 25%; }
-.message.agent { background-color: #0056b3; color: white; text-align: left; margin-left: 25%; }
-.message .sender { font-weight: bold; font-size: 0.9em; display: block; margin-bottom: 4px; color: #00A0E3; }
+.message { padding: 12px; margin-bottom: 12px; border-radius: 8px; line-height: 1.6; clear: both; font-size: 15px; } /* Increased padding, margin, font-size */
+.message.customer { background-color: #353a3f; text-align: left; margin-right: 20%; } /* Reduced margin to give more space */
+.message.agent { background-color: #0056b3; color: white; text-align: left; margin-left: 20%; } /* Reduced margin */
+.message .sender { font-weight: bold; font-size: 1em; display: block; margin-bottom: 5px; color: #00A0E3; } /* Larger font for sender */
 .message.customer .sender { color: #6DD5FA; }
-.message-date-separator { text-align: center; margin: 15px 0 10px 0; color: #888; font-size: 0.9em; position: relative; }
-.message-date-separator span { background-color: #25282c; padding: 0 10px; position: relative; z-index: 1; }
+.message-date-separator { text-align: center; margin: 20px 0 15px 0; color: #888; font-size: 0.95em; position: relative; } /* More vertical spacing */
+.message-date-separator span { background-color: #25282c; padding: 0 12px; position: relative; z-index: 1; } /* Larger padding */
 .message-date-separator::before { content: ""; position: absolute; left: 0; top: 50%; width: 100%; height: 1px; background-color: #3a3f44; z-index: 0; }
-.message .message-time { font-size: 0.75em; color: #999; margin-left: 8px; display: inline; }
+.message .message-time { font-size: 0.85em; color: #999; margin-left: 10px; display: inline; } /* Slightly larger font */
 .message.agent .message-time { color: #e0e0e0; }
-.message.system { background-color: #3c4147; color: #a0a7af; text-align: center; font-size: 0.8em; font-style: italic; padding: 6px 10px; margin: 10px auto; max-width: 75%; border-radius: 15px; }
+.message.system { background-color: #3c4147; color: #a0a7af; text-align: center; font-size: 0.9em; font-style: italic; padding: 8px 12px; margin: 12px auto; max-width: 80%; border-radius: 18px; } /* Larger font, padding, margin, border-radius */
 
 .message.system .message-text { display: block; } /* Mantém o texto da msg de sistema */
 .message.system .message-time { display: block; font-size: 0.85em; color: #888; margin-top: 3px; }
@@ -237,9 +713,6 @@ body {
 }
 
 /* Estilos para anexos */
-.message-content {
-    /* margin-top: 5px; */ /* Removido, pois o texto/anexo é o conteúdo principal */
-}
 .message-text { /* Texto normal da mensagem */
     white-space: pre-wrap; 
     word-break: break-word; 
@@ -470,15 +943,17 @@ body {
 
     .search-bar-container-v2 input {
         margin-right: 0;
-        margin-bottom: 10px;
+        margin-bottom: 15px; /* More space below input */
         width: 100%; /* Full width on small screens */
+        padding: 12px 18px; /* Slightly more padding */
+        font-size: 16px; /* Larger font for mobile input */
     }
 
     .refresh-button {
         width: 100%; /* Full width on small screens */
-        height: 40px; /* Slightly taller for easier tap */
-        font-size: 22px;
-        line-height: 40px;
+        height: 45px; /* Taller for easier tap */
+        font-size: 24px; /* Larger symbol */
+        line-height: 45px;
     }
 
     .tickets-table-v2 {
@@ -508,21 +983,22 @@ body {
     .tickets-table-v2 td::before {
         content: attr(data-label); /* Use data-label for column names */
         position: absolute;
-        left: 6px;
-        width: 45%;
+        left: 10px; /* More padding from left edge */
+        width: 40%; /* Adjust width for label */
         padding-right: 10px;
         white-space: nowrap;
         text-align: left;
         font-weight: bold;
         color: #8899a6;
+        font-size: 13px; /* Ensure label is readable */
     }
 
     .tickets-table-v2 tr {
-        margin-bottom: 10px;
+        margin-bottom: 15px; /* More space between ticket cards */
         border: 1px solid #2c3035;
-        border-radius: 8px;
+        border-radius: 10px; /* Slightly more rounded corners */
         overflow: hidden;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); /* Add subtle shadow for card-like effect */
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2); /* More prominent shadow */
     }
 
     .conversation-history-modal {
@@ -532,11 +1008,29 @@ body {
     }
 
     .conversation-history-modal h3 {
-        font-size: 16px;
+        font-size: 18px; /* Slightly larger modal title */
     }
 
     .message.customer, .message.agent {
         margin-left: 0;
         margin-right: 0;
+        font-size: 14px; /* Ensure message text is readable */
+    }
+
+    .message .sender {
+        font-size: 0.95em; /* Adjust sender font size */
+    }
+
+    .message .message-time {
+        font-size: 0.8em; /* Adjust timestamp font size */
+    }
+
+    .message-date-separator {
+        font-size: 0.9em; /* Adjust separator font size */
+    }
+
+    .attachment-link {
+        font-size: 0.95em; /* Adjust attachment link font size */
+        padding: 8px 12px; /* Larger padding for touch */
     }
 }

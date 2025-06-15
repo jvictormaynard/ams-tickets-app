@@ -1,15 +1,13 @@
+/** @type {import('postcss-load-config').Config} */
 const config = {
-  plugins: [
-    "@tailwindcss/postcss",
-    "postcss-import",
-    ["cssnano", process.env.NODE_ENV === 'production' ? {
-      preset: ['advanced', {
-        discardComments: { removeAll: true },
-        reduceIdents: false,
-        zindex: false
-      }]
-    } : false]
-  ]
+  plugins: {
+    'postcss-import': {},
+    'tailwindcss/nesting': {},
+    tailwindcss: {},
+    cssnano: {
+      preset: 'default',
+    },
+  },
 };
 
 export default config;

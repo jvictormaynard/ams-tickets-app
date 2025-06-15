@@ -2,21 +2,14 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { jwtVerify } from 'jose';
 
-// Rotas que não precisam de autenticação
-const publicRoutes = ['/login', '/api/auth'];
-
 export async function middleware(request: NextRequest) {
-    const path = request.nextUrl.pathname;
-
-    // Ignora rotas públicas
-    if (publicRoutes.some(route => path.startsWith(route))) {
-        return NextResponse.next();
-    }
-
     const token = request.cookies.get('auth_token')?.value;
 
     // Se não houver token, redireciona para o login
     if (!token) {
+        if (request.nextUrl.pathname === '/login') {
+            return NextResponse.next();
+        }
         const url = request.nextUrl.clone();
         url.pathname = '/login';
         return NextResponse.redirect(url);
@@ -24,11 +17,23 @@ export async function middleware(request: NextRequest) {
 
     try {
         // Verifica o token usando jose
-        const secret = new TextEncoder().encode(process.env.JWT_SECRET || 'your-secret-key');
+        const JWT_SECRET = process.env.JWT_SECRET;
+        if (!JWT_SECRET) {
+            throw new Error('❌ Missing JWT_SECRET environment variable in middleware');
+        }
+        const secret = new TextEncoder().encode(JWT_SECRET);
         await jwtVerify(token, secret);
+        if (request.nextUrl.pathname === '/login') {
+            const url = request.nextUrl.clone();
+            url.pathname = '/';
+            return NextResponse.redirect(url);
+        }
         return NextResponse.next();
     } catch (error) {
         // Token inválido ou expirado
+        if (request.nextUrl.pathname === '/login') {
+            return NextResponse.next();
+        }
         const url = request.nextUrl.clone();
         url.pathname = '/login';
         return NextResponse.redirect(url);
@@ -39,12 +44,12 @@ export const config = {
     matcher: [
         /*
          * Match all request paths except for the ones starting with:
-         * - api (API routes)
+         * - api/auth (the auth api route)
          * - _next/static (static files)
          * - _next/image (image optimization files)
          * - favicon.ico (favicon file)
          * - anything with a file extension (e.g. .svg, .png, .jpg, .css, etc.)
          */
-        '/((?!api|_next/static|_next/image|favicon.ico|.*\\..*).*)',
+        '/((?!api/auth|_next/static|_next/image|favicon.ico|.*\\..*).*)',
     ],
 };

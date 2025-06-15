@@ -144,8 +144,11 @@ async function handleMessageEvent(event: any, request: NextRequest) {
             before = messages[messages.length - 1].id.toString();
         }
 
-        if (allMessages.length > 0) {
-            const transformedMessages = transformChatwootMessagesForFrontend(allMessages, contactNameForMessages);
+        // Filter out potential duplicates by message ID
+        const uniqueMessages = Array.from(new Map(allMessages.map(msg => [msg.id, msg])).values());
+
+        if (uniqueMessages.length > 0) {
+            const transformedMessages = transformChatwootMessagesForFrontend(uniqueMessages, contactNameForMessages);
             await putConversationMessages(conversationId.toString(), transformedMessages);
             console.log(`WEBHOOK: Successfully updated messages for ticket ${conversationId} from message event.`);
         } else {
@@ -199,8 +202,11 @@ async function fetchAndStoreMessagesForConversation(
         before = messages[messages.length - 1].id.toString();
     }
 
-    if (allMessages.length > 0) {
-        const transformedMessages = transformChatwootMessagesForFrontend(allMessages, contactNameForMessages);
+    // Filter out potential duplicates by message ID
+    const uniqueMessages = Array.from(new Map(allMessages.map(msg => [msg.id, msg])).values());
+
+    if (uniqueMessages.length > 0) {
+        const transformedMessages = transformChatwootMessagesForFrontend(uniqueMessages, contactNameForMessages);
         await putConversationMessages(conversationId.toString(), transformedMessages);
         console.log(`WEBHOOK: Successfully stored messages for conversation ${conversationId}.`);
     } else {
