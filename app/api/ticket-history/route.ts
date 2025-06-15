@@ -3,11 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyAuth } from '../utils/auth';
 import { initializeDatabase, putTickets, getAllTickets, getTotalTicketCount, putConversations, getConversationsByIds } from '../../../server/db';
 
-// Global variable to track last successful sync time
-// In a production serverless environment, this would need a persistent store (e.g., Redis, another DB table)
-// For a long-running VPS process, this can work as a simple in-memory cache timestamp.
-let lastSuccessfulSync: number = 0;
-const SYNC_INTERVAL_MS = 3 * 1000; // 3 seconds
+// With webhooks, we no longer need a polling mechanism or in-memory sync timestamp.
+// Data updates will be driven by incoming webhook events.
 
 // --- Interfaces Detalhadas do Chatwoot e para o Frontend ---
 interface CustomAttributes {
@@ -114,7 +111,7 @@ async function getContactDetails(contactId: number, accountId: string, chatwootU
     }
 }
 
-function transformChatwootConversationToTicket(
+export function transformChatwootConversationToTicket(
     conv: ChatwootConversation,
     contactDetails?: ChatwootContact | null
 ): TicketForFrontend {
@@ -168,7 +165,7 @@ function transformChatwootConversationToTicket(
 }
 
 // Modificada para lidar com anexos
-function transformChatwootMessagesForFrontend(
+export function transformChatwootMessagesForFrontend(
     chatwootMessages: ChatwootMessage[],
     contactNameFromConversation: string
 ): ConversationMessageForFrontend[] {
@@ -222,38 +219,58 @@ async function syncDataWithChatwoot(
     CHATWOOT_URL: string,
     ACCOUNT_ID: string,
     API_TOKEN: string,
-    page: string,
-    perPage: string,
+    // Removed page, perPage as we will fetch all conversations
     isSpecificContactSearch: boolean,
     contactIdParam: string | null
 ) {
     try {
-        let conversationsUrl: string;
-        if (isSpecificContactSearch) {
-            conversationsUrl = `${CHATWOOT_URL}/api/v1/accounts/${ACCOUNT_ID}/contacts/${contactIdParam}/conversations`;
-        } else {
-            conversationsUrl = `${CHATWOOT_URL}/api/v1/accounts/${ACCOUNT_ID}/conversations?status=all&sort=-last_activity_at&page=${page}&per_page=${perPage}`;
+        let allRawConversations: ChatwootConversation[] = [];
+        let conversationsPage = 1;
+        let hasMoreConversations = true;
+
+        while (hasMoreConversations) {
+            let conversationsUrl: string;
+            if (isSpecificContactSearch) {
+                conversationsUrl = `${CHATWOOT_URL}/api/v1/accounts/${ACCOUNT_ID}/contacts/${contactIdParam}/conversations`;
+                hasMoreConversations = false; // Only one call for specific contact
+            } else {
+                // Assuming 'page' and 'per_page' are supported for conversations endpoint
+                conversationsUrl = `${CHATWOOT_URL}/api/v1/accounts/${ACCOUNT_ID}/conversations?status=all&sort=-last_activity_at&page=${conversationsPage}&per_page=100`; // Fetch more per page
+            }
+
+            const response = await fetch(conversationsUrl, {
+                headers: { 'api_access_token': API_TOKEN },
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ message: "Erro desconhecido" }));
+                console.error(`API: Falha ao buscar conversas (${response.status}): ${errorData.message || response.statusText} para URL: ${conversationsUrl}`);
+                throw new Error(`Falha ao buscar conversas do Chatwoot: ${errorData.message || response.statusText}`);
+            }
+
+            const chatwootPayload = await response.json();
+            const currentConversationsPage: ChatwootConversation[] = isSpecificContactSearch
+                ? chatwootPayload.payload
+                : chatwootPayload.data.payload;
+
+            if (!Array.isArray(currentConversationsPage)) {
+                console.error("API: Resposta inesperada (esperava array de conversas):", currentConversationsPage);
+                throw new Error("Formato de resposta inválido da API de conversas.");
+            }
+
+            if (currentConversationsPage.length === 0 || isSpecificContactSearch) {
+                hasMoreConversations = false;
+            } else {
+                allRawConversations = allRawConversations.concat(currentConversationsPage);
+                conversationsPage++;
+                // If less than per_page, it's the last page
+                if (currentConversationsPage.length < 100) {
+                    hasMoreConversations = false;
+                }
+            }
         }
 
-        const response = await fetch(conversationsUrl, {
-            headers: { 'api_access_token': API_TOKEN },
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ message: "Erro desconhecido" }));
-            console.error(`API: Falha ao buscar conversas (${response.status}): ${errorData.message || response.statusText} para URL: ${conversationsUrl}`);
-            throw new Error(`Falha ao buscar conversas do Chatwoot: ${errorData.message || response.statusText}`);
-        }
-
-        const chatwootPayload = await response.json();
-        const rawConversations: ChatwootConversation[] = isSpecificContactSearch
-            ? chatwootPayload.payload
-            : chatwootPayload.data.payload;
-
-        if (!Array.isArray(rawConversations)) {
-            console.error("API: Resposta inesperada (esperava array de conversas):", rawConversations);
-            throw new Error("Formato de resposta inválido da API de conversas.");
-        }
+        const rawConversations = allRawConversations; // Use the accumulated conversations
 
         const ticketsToStore: TicketForFrontend[] = [];
         const conversationsToStore: { [ticketId: string]: ConversationMessageForFrontend[] } = {};
@@ -315,7 +332,6 @@ async function syncDataWithChatwoot(
         // Store fetched data in SQLite
         await putTickets(ticketsToStore);
         await putConversations(conversationsToStore);
-        lastSuccessfulSync = Date.now(); // Update sync timestamp
         console.log('Data successfully synchronized with Chatwoot and stored in SQLite.');
         return { tickets: ticketsToStore, conversations: conversationsToStore };
 
@@ -350,47 +366,24 @@ export async function GET(request: NextRequest) {
         let conversationDetails: { [ticketId: string]: ConversationMessageForFrontend[] } = {};
         let servedFromCache = false;
 
-        let totalTicketsCount = 0;
+        let totalTicketsCount = await getTotalTicketCount();
 
-        // 1. Try to serve from cache first
-        try {
-            // Fetch paginated tickets from cache
+        // If the database is empty, perform an initial full sync
+        if (totalTicketsCount === 0) {
+            console.log('Database is empty. Initiating initial full sync with Chatwoot.');
+            const syncedData = await syncDataWithChatwoot(CHATWOOT_URL, ACCOUNT_ID, API_TOKEN, false, null); // Fetch all, not specific contact
+            tickets = syncedData.tickets;
+            conversationDetails = syncedData.conversations;
+            totalTicketsCount = await getTotalTicketCount(); // Recalculate total count after initial sync
+        } else {
+            // With webhooks, we always serve from the cache for immediate response.
+            // The cache is kept up-to-date by incoming webhook events.
+            console.log('Serving data from SQLite cache (updated by webhooks).');
             const parsedPage = parseInt(page);
             const parsedPerPage = parseInt(perPage);
-            const cachedTickets = await getAllTickets(parsedPage, parsedPerPage);
-            totalTicketsCount = await getTotalTicketCount(); // Get total count for pagination
-
-            if (cachedTickets.length > 0) {
-                const ticketIds = cachedTickets.map(ticket => ticket.id);
-                const cachedConversations = await getConversationsByIds(ticketIds);
-                
-                tickets = cachedTickets;
-                conversationDetails = cachedConversations;
-                servedFromCache = true;
-                console.log('Serving data from SQLite cache.');
-            }
-        } catch (cacheError: any) {
-            console.warn("API: Erro ao ler do cache SQLite:", cacheError.message);
-            // Continue to fetch from API if cache read fails
-        }
-
-        // 2. Determine if a background sync is needed
-        const needsSync = (Date.now() - lastSuccessfulSync) > SYNC_INTERVAL_MS;
-
-        if (needsSync || !servedFromCache) {
-            console.log(needsSync ? 'Initiating background sync (interval).' : 'Initiating foreground fetch (no cache).');
-            // Fetch from external API and update cache
-            const syncedData = await syncDataWithChatwoot(CHATWOOT_URL, ACCOUNT_ID, API_TOKEN, page, perPage, !!contactIdParam, contactIdParam);
-            
-            // Always update the cache with the latest data from Chatwoot
-            // The `syncDataWithChatwoot` function already handles `putTickets` and `putConversations`
-            
-            // If data was NOT served from cache, use the newly synced data for the response
-            if (!servedFromCache) {
-                tickets = syncedData.tickets;
-                conversationDetails = syncedData.conversations;
-                totalTicketsCount = await getTotalTicketCount(); // Recalculate total count after sync
-            }
+            tickets = await getAllTickets(parsedPage, parsedPerPage);
+            const ticketIds = tickets.map(ticket => ticket.id);
+            conversationDetails = await getConversationsByIds(ticketIds);
         }
 
         // If after all attempts, we still have no tickets, return an error
