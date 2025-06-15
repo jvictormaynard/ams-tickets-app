@@ -266,23 +266,49 @@ async function syncDataWithChatwoot(
             
             ticketsToStore.push(transformChatwootConversationToTicket(conv, contactDetails));
             
-            const messagesResponse = await fetch(`${CHATWOOT_URL}/api/v1/accounts/${ACCOUNT_ID}/conversations/${conv.id}/messages`, {
-                 headers: { 'api_access_token': API_TOKEN },
-            });
 
-            if (messagesResponse.ok) {
-                const messagesPayload = await messagesResponse.json();
-                const contactNameForMessages = conv.meta.sender?.name || "Contato";
-                const allMessages = Array.isArray(messagesPayload.payload) ? messagesPayload.payload : messagesPayload.data?.payload || [];
-                
-                if (allMessages.length > 0) {
-                    conversationsToStore[conv.id.toString()] = transformChatwootMessagesForFrontend(allMessages, contactNameForMessages);
-                } else {
-                    conversationsToStore[conv.id.toString()] = [{ id: Date.now(), sender: "Sistema", text: "Nenhum histórico de mensagens encontrado para esta conversa.", timestamp: Math.floor(Date.now()/1000), isSystemMessage: true, attachments: [] }];
+            // Fetch all pages of messages for the conversation using 'before' parameter
+            let allMessages: ChatwootMessage[] = [];
+            let before: string | null = null;
+            const contactNameForMessages = conv.meta.sender?.name || "Contato";
+
+            while (true) {
+                let messagesUrl = `${CHATWOOT_URL}/api/v1/accounts/${ACCOUNT_ID}/conversations/${conv.id}/messages`;
+                if (before) {
+                    messagesUrl += `?before=${before}`;
                 }
+
+                const messagesResponse = await fetch(messagesUrl, {
+                    headers: { 'api_access_token': API_TOKEN },
+                });
+
+                if (!messagesResponse.ok) {
+                    console.warn(`API: Não foi possível buscar mensagens para a conversa ${conv.id} com 'before'=${before}. Status: ${messagesResponse.status}`);
+                    break;
+                }
+
+                const messagesPayload = await messagesResponse.json();
+                const messages = Array.isArray(messagesPayload.payload) ? messagesPayload.payload : messagesPayload.data?.payload || [];
+
+                if (messages.length === 0) {
+                    break;
+                }
+
+                allMessages = allMessages.concat(messages);
+
+                if (messages.length < 20) {
+                    // Less than 20 messages, so this is the last page
+                    break;
+                }
+
+                // Get the id of the oldest message to use as the 'before' parameter
+                before = messages[messages.length - 1].id.toString();
+            }
+
+            if (allMessages.length > 0) {
+                conversationsToStore[conv.id.toString()] = transformChatwootMessagesForFrontend(allMessages, contactNameForMessages);
             } else {
-                console.warn(`API: Não foi possível buscar mensagens para a conversa ${conv.id}. Status: ${messagesResponse.status}`);
-                conversationsToStore[conv.id.toString()] = [{ id: Date.now(), sender: "Sistema", text: "Falha ao carregar histórico desta conversa.", timestamp: Math.floor(Date.now()/1000), isSystemMessage: true, attachments: [] }];
+                conversationsToStore[conv.id.toString()] = [{ id: Date.now(), sender: "Sistema", text: "Nenhum histórico de mensagens encontrado para esta conversa.", timestamp: Math.floor(Date.now()/1000), isSystemMessage: true, attachments: [] }];
             }
         }
 
