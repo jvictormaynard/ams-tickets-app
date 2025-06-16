@@ -8,7 +8,8 @@ COPY package.json ./
 COPY package-lock.json ./
 
 # Install build dependencies for native modules (sqlite3, sharp)
-RUN apk add --no-cache build-base python3 libsqlite3-dev vips-dev
+# Note: libsqlite3-dev is called sqlite-dev in Alpine Linux
+RUN apk add --no-cache build-base python3 sqlite-dev vips-dev
 
 # Install dependencies (production only for smaller final image)
 RUN npm ci --omit=dev
@@ -26,10 +27,8 @@ FROM node:20-alpine AS runner
 WORKDIR /app
 
 # Set environment variables for production
-# EasyPanel might set NODE_ENV, so we remove it here to avoid conflicts.
+# EasyPanel manages NODE_ENV and JWT_SECRET as runtime environment variables.
 ENV PORT=3000
-# JWT_SECRET is required for authentication. Set this environment variable in EasyPanel.
-ENV JWT_SECRET=${JWT_SECRET}
 
 # Copy package.json from builder to ensure `npm start` works
 COPY --from=builder /app/package.json ./
