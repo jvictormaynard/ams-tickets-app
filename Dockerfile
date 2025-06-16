@@ -7,6 +7,9 @@ WORKDIR /app
 COPY package.json ./
 COPY package-lock.json ./
 
+# Install build dependencies for native modules (sqlite3, sharp)
+RUN apk add --no-cache build-base python3 libsqlite3-dev vips-dev
+
 # Install dependencies (production only for smaller final image)
 RUN npm ci --omit=dev
 
@@ -23,7 +26,7 @@ FROM node:20-alpine AS runner
 WORKDIR /app
 
 # Set environment variables for production
-ENV NODE_ENV=production
+# EasyPanel might set NODE_ENV, so we remove it here to avoid conflicts.
 ENV PORT=3000
 # JWT_SECRET is required for authentication. Set this environment variable in EasyPanel.
 ENV JWT_SECRET=${JWT_SECRET}
