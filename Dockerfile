@@ -9,8 +9,8 @@ COPY package-lock.json ./
 
 # Install build dependencies for native modules (sqlite3, sharp)
 # Note: libsqlite3-dev is called sqlite-dev in Alpine Linux
-# python3-distutils is needed for node-gyp with newer Python versions
-RUN apk add --no-cache build-base python3 python3-distutils sqlite-dev vips-dev
+# python3-dev is needed for node-gyp with newer Python versions (includes distutils compatibility)
+RUN apk add --no-cache build-base python3 python3-dev sqlite-dev vips-dev
 
 # Install dependencies (production only for smaller final image)
 RUN npm ci --omit=dev
