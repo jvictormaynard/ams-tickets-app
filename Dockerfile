@@ -34,6 +34,9 @@ COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/data ./data
 
+# bring in all the compiled static assets so /_next/static/... 404s go away
+COPY --from=builder /app/.next/static   ./.next/static
+
 # Create cache and data directories and set permissions for the non-root user
 RUN mkdir -p .next/cache && \
     mkdir -p /app/data && \
