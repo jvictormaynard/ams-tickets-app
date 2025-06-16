@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyAuth } from '../utils/auth';
 import { initializeDatabase, putTickets, getAllTickets, getTotalTicketCount, putConversations, getConversationsByIds } from '../../../server/db';
 
+let isSyncing = false; // Flag to prevent concurrent syncs
+
 // With webhooks, we no longer need a polling mechanism or in-memory sync timestamp.
 // Data updates will be driven by incoming webhook events.
 
@@ -415,12 +417,21 @@ export async function GET(request: NextRequest) {
 
         // If the database is empty, perform an initial full sync
         if (totalTicketsCount === 0) {
-            console.log('API: Database is empty. Initiating initial full sync with Chatwoot.');
-            const syncedData = await syncDataWithChatwoot(CHATWOOT_URL, ACCOUNT_ID, API_TOKEN, false, null); // Fetch all, not specific contact
-            tickets = syncedData.tickets;
-            conversationDetails = syncedData.conversations;
-            totalTicketsCount = await getTotalTicketCount(); // Recalculate total count after initial sync
-            chatwootTotalCount = syncedData.totalConversationsFromAPI; // Get total count from syncDataWithChatwoot
+            if (isSyncing) {
+                console.log("API: Initial sync already in progress. Returning 202 Accepted.");
+                return NextResponse.json({ error: 'Initial sync in progress. Please try again shortly.' }, { status: 202 });
+            }
+            isSyncing = true; // Set the flag before starting sync
+            try {
+                console.log("API: Database is empty. Initiating initial full sync with Chatwoot.");
+                const syncedData = await syncDataWithChatwoot(CHATWOOT_URL, ACCOUNT_ID, API_TOKEN, false, null); // Fetch all, not specific contact
+                tickets = syncedData.tickets;
+                conversationDetails = syncedData.conversations;
+                totalTicketsCount = await getTotalTicketCount(); // Recalculate total count after initial sync
+                chatwootTotalCount = syncedData.totalConversationsFromAPI; // Get total count from syncDataWithChatwoot
+            } finally {
+                isSyncing = false; // Always reset the flag
+            }
         } else {
             // With webhooks, we always serve from the cache for immediate response.
             // The cache is kept up-to-date by incoming webhook events.
