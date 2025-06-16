@@ -3,6 +3,7 @@ import { jwtVerify } from 'jose';
 
 export interface AuthToken {
     username: string;
+    role: string; // Add role to the AuthToken interface
     iat: number;
     exp: number;
 }

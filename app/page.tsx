@@ -15,6 +15,11 @@ import ConversationModal from '../components/ConversationModal';
 
 export const dynamic = 'force-dynamic'; // Force dynamic rendering for this page
 
+interface UserRole {
+    username: string;
+    role: string;
+}
+
 const LOGO_URL = "https://s3.dev.amssergipe.com.br/general/frgtbsrravgteb.png";
 
 function formatLastActivity(timestamp: number): string {
@@ -53,6 +58,30 @@ export default function TicketDashboardPage() {
     const [totalTicketsCount, setTotalTicketsCount] = useState(0); // New state for total ticket count
     const router = useRouter(); // Initialize useRouter
     const pathname = usePathname(); // Get current pathname
+    const [userRole, setUserRole] = useState<UserRole | null>(null);
+    const [authChecked, setAuthChecked] = useState(false);
+
+    useEffect(() => {
+        const checkAuth = async () => {
+            try {
+                const response = await fetch('/api/user-role');
+                if (!response.ok) {
+                    // Handle unauthenticated state if necessary, e.g., redirect to login
+                    // For now, just set authChecked to true and userRole to null
+                    setUserRole(null);
+                } else {
+                    const data: UserRole = await response.json();
+                    setUserRole(data);
+                }
+            } catch (err) {
+                console.error("Error checking auth:", err);
+                setUserRole(null);
+            } finally {
+                setAuthChecked(true);
+            }
+        };
+        checkAuth();
+    }, []); // Empty dependency array to run once on mount
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -173,9 +202,11 @@ export default function TicketDashboardPage() {
                 {/* New navigation/tabs section */}
                 <div className="dashboard-nav-tabs">
                     <button className="nav-tab active">Solicitações</button>
-                    <button className="nav-tab" onClick={() => router.push('/stats')}>
-                        Estatísticas e Dashboards
-                    </button>
+                    {authChecked && userRole?.role === 'admin' && (
+                        <button className="nav-tab" onClick={() => router.push('/stats')}>
+                            Estatísticas e Dashboards
+                        </button>
+                    )}
                 </div>
 
                 <div className="search-bar-container-v2">

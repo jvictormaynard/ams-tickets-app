@@ -24,7 +24,11 @@ function getStartOfMonth(date: Date): number {
 
 export async function GET(request: NextRequest) {
     try {
-        await verifyAuth(); // Ensure user is authenticated
+        const auth = await verifyAuth(); // Ensure user is authenticated
+        if (auth.role !== 'admin') {
+            return NextResponse.json({ error: 'Acesso negado. Você não tem permissão para visualizar estatísticas.' }, { status: 403 });
+        }
+
         const db = await initializeDatabase(); // Get DB instance
 
         const { searchParams } = new URL(request.url);

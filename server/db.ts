@@ -13,6 +13,7 @@ if (!fs.existsSync(dataDir)) {
 }
 
 import { Database, open } from 'sqlite';
+import bcrypt from 'bcryptjs'; // Import bcryptjs
 
 interface Ticket {
     id: string;
@@ -70,8 +71,39 @@ export const initializeDatabase = async (): Promise<Database> => {
                 messages TEXT, -- Storing as JSON string
                 FOREIGN KEY (ticketId) REFERENCES tickets(id) ON DELETE CASCADE
             );
+
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                password TEXT NOT NULL,
+                role TEXT NOT NULL DEFAULT 'ams'
+            );
         `);
         console.log('SQLite database initialized and tables created.');
+
+        // Ensure environment variables are available for initial admin user setup
+        const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
+        const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
+        const JWT_SECRET = process.env.JWT_SECRET; // Also check JWT_SECRET
+
+        if (!ADMIN_USERNAME || !ADMIN_PASSWORD_HASH || !JWT_SECRET) {
+            console.warn('Missing ADMIN_USERNAME, ADMIN_PASSWORD_HASH, or JWT_SECRET environment variables. Default admin user might not be created or updated.');
+        } else {
+            // Always ensure the admin user exists and its password is up-to-date from .env.local
+            await dbInstance.run(
+                `INSERT OR REPLACE INTO users (username, password, role) VALUES (?, ?, ?)`,
+                ADMIN_USERNAME, ADMIN_PASSWORD_HASH, 'admin'
+            );
+        }
+
+        // Hash password for 'ams' user
+        const amsPasswordHash = await bcrypt.hash('tickets123AMS', 10);
+        // Always ensure the 'ams' user exists and its password is up-to-date
+        await dbInstance.run(
+            `INSERT OR REPLACE INTO users (username, password, role) VALUES (?, ?, ?)`,
+            'ams', amsPasswordHash, 'ams'
+        );
+
         return dbInstance;
     } catch (error) {
         console.error('Error initializing database:', error);

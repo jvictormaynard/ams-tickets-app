@@ -6,6 +6,11 @@ import Image from 'next/image';
 import BarChart from '../../components/BarChart';
 import { ChartBarIcon, ClockIcon, TicketIcon, CheckCircleIcon, ExclamationCircleIcon, BeakerIcon } from '@heroicons/react/24/outline';
 
+interface UserRole {
+    username: string;
+    role: string;
+}
+
 
 const LOGO_URL = "https://s3.dev.amssergipe.com.br/general/frgtbsrravgteb.png";
 
@@ -27,6 +32,31 @@ export default function StatsDashboardPage() {
         avgResolutionTime: 'N/A',
     });
     const router = useRouter();
+    const [userRole, setUserRole] = useState<UserRole | null>(null);
+    const [authChecked, setAuthChecked] = useState(false);
+
+    useEffect(() => {
+        const checkAuth = async () => {
+            try {
+                const response = await fetch('/api/user-role');
+                if (!response.ok) {
+                    router.push('/'); // Redirect if not authenticated
+                    return;
+                }
+                const data: UserRole = await response.json();
+                setUserRole(data);
+                if (data.role !== 'admin') {
+                    router.push('/'); // Redirect if not admin
+                }
+            } catch (err) {
+                console.error("Error checking auth:", err);
+                router.push('/'); // Redirect on any auth error
+            } finally {
+                setAuthChecked(true);
+            }
+        };
+        checkAuth();
+    }, [router]);
 
     const fetchStats = useCallback(async (period: string) => {
         setLoading(true);
@@ -34,6 +64,12 @@ export default function StatsDashboardPage() {
         try {
             const response = await fetch(`/api/stats?period=${period}`);
             if (!response.ok) {
+                // If the API returns 403 (Forbidden), it means the user is not authorized
+                if (response.status === 403) {
+                    setError("Acesso negado. Você não tem permissão para visualizar estatísticas.");
+                    setLoading(false);
+                    return;
+                }
                 const errorData = await response.json().catch(() => ({ error: `Falha: ${response.statusText}` }));
                 throw new Error(errorData.error || `Falha ao buscar dados: ${response.statusText}`);
             }
@@ -84,6 +120,16 @@ export default function StatsDashboardPage() {
             default: return "";
         }
     };
+
+    if (!authChecked || (userRole && userRole.role !== 'admin')) {
+        // Optionally show a loading state or nothing while redirecting
+        return (
+            <div className="dashboard-container dashboard-v2" style={{ textAlign: 'center', padding: '50px', color: '#e0e0e0' }}>
+                <Image src={LOGO_URL} alt="Logo AMS Sergipe" width={40} height={40} style={{ marginBottom: '20px' }} priority />
+                <p>Verificando permissões...</p>
+            </div>
+        );
+    }
 
     if (loading) {
         return (
